@@ -220,16 +220,7 @@
     if (shareCache.has(normalized)) {
       return shareCache.get(normalized);
     }
-    const request = fetchWithTimeout(normalized, {
-      credentials: "omit",
-      mode: "cors",
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`cover HTTP ${response.status}`);
-        }
-        return response.blob();
-      })
+    const request = fetchImageDataUrl(normalized)
       .then(
         (blob) =>
           new Promise((resolve, reject) => {
@@ -242,6 +233,56 @@
       .catch(() => null);
     shareCache.set(normalized, request);
     return request;
+  }
+
+  function imageProxyUrls(url) {
+    try {
+      const parsed = new URL(url);
+      if (!/^https?:$/u.test(parsed.protocol)) {
+        return [];
+      }
+      const source = `${parsed.host}${parsed.pathname}${parsed.search}`;
+      const query = encodeURIComponent(source);
+      return [
+        `https://images.weserv.nl/?url=${query}`,
+        `https://wsrv.nl/?url=${query}`,
+      ];
+    } catch {
+      return [];
+    }
+  }
+
+  async function fetchImageBlob(url) {
+    const response = await fetchWithTimeout(url, {
+      credentials: "omit",
+      mode: "cors",
+    });
+    if (!response.ok) {
+      throw new Error(`cover HTTP ${response.status}`);
+    }
+    return response.blob();
+  }
+
+  async function fetchImageDataUrl(url) {
+    const proxies = imageProxyUrls(url);
+    let hostname = "";
+    try {
+      hostname = new URL(url).hostname.toLowerCase();
+    } catch {
+      hostname = "";
+    }
+    const proxyFirst = hostname === "lain.bgm.tv";
+    const candidates = proxyFirst
+      ? [...proxies, url]
+      : [url, ...proxies];
+    for (const candidate of candidates) {
+      try {
+        return await fetchImageBlob(candidate);
+      } catch {
+        // Try the alternate origin before declaring the cover unavailable.
+      }
+    }
+    throw new Error("封面原站与图片代理均不可用");
   }
 
   function fetchBangumiCover(subjectId) {

@@ -39,6 +39,17 @@ function createShareRuntime({ fetchImpl, clipboardWrite } = {}) {
       this.items = items;
     }
   }
+  class RuntimeURL extends URL {
+    static createObjectURL(blob) {
+      const url = `blob:test-${++objectUrlIndex}`;
+      objectUrls.set(url, blob);
+      return url;
+    }
+
+    static revokeObjectURL(url) {
+      objectUrls.delete(url);
+    }
+  }
   const canvas = {
     getContext() {
       return {
@@ -61,16 +72,7 @@ function createShareRuntime({ fetchImpl, clipboardWrite } = {}) {
     ClipboardItem,
     FileReader,
     Image,
-    URL: {
-      createObjectURL(blob) {
-        const url = `blob:test-${++objectUrlIndex}`;
-        objectUrls.set(url, blob);
-        return url;
-      },
-      revokeObjectURL(url) {
-        objectUrls.delete(url);
-      },
-    },
+    URL: RuntimeURL,
     AbortController,
     clearTimeout,
     console,
@@ -147,4 +149,28 @@ test("normalizes clipboard images to PNG before writing", async () => {
   assert.equal(written.length, 1);
   assert.ok(written[0] instanceof runtime.ClipboardItem);
   assert.equal(written[0].items["image/png"].type, "image/png");
+});
+
+test("uses the CORS image proxy first for Bangumi covers", async () => {
+  const remoteCover = "https://lain.bgm.tv/pic/cover/l/example.jpg";
+  const requests = [];
+  const runtime = createShareRuntime({
+    fetchImpl: async (url) => {
+      requests.push(url);
+      return {
+        ok: true,
+        blob: async () => new Blob(["bgm-cover"], { type: "image/jpeg" }),
+      };
+    },
+  });
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><image href="${remoteCover}" width="10" height="10" /></svg>`;
+
+  await runtime.api.createImage(svg, 10, 10);
+
+  assert.equal(requests.length, 1);
+  assert.match(requests[0], /^https:\/\/images\.weserv\.nl\/\?url=/u);
+  assert.match(
+    decodeURIComponent(requests[0]),
+    /lain\.bgm\.tv\/pic\/cover\/l\/example\.jpg/u,
+  );
 });
