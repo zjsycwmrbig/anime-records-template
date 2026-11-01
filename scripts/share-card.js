@@ -2,7 +2,7 @@
   const SVG_NS = "http://www.w3.org/2000/svg";
   const FONT_STACK = "'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif";
   const DISPLAY_FONT = "'Noto Serif SC', 'Songti SC', Georgia, serif";
-  const COVER_REQUEST_TIMEOUT = 1600;
+  const COVER_REQUEST_TIMEOUT = 6000;
   const shareCache = new Map();
   const PALETTES = {
     coral: {
@@ -964,13 +964,16 @@
   }
 
   async function inlineExternalImages(svg) {
-    const matches = [
-      ...svg.matchAll(/<image\b[^>]*\bhref="([^"]+)"/gu),
-    ];
+    const matches = [...svg.matchAll(/<image\b[^>]*>/gu)];
+    const failedSources = [];
     let result = svg;
-    let changed = false;
     for (const match of matches) {
-      const source = match[1]
+      const tag = match[0];
+      const href = tag.match(/\b(?:xlink:)?href="([^"]+)"/u);
+      if (!href) {
+        continue;
+      }
+      const source = href[1]
         .replace(/&amp;/gu, "&")
         .replace(/&quot;/gu, '"');
       if (source.startsWith("data:image/")) {
@@ -978,30 +981,30 @@
       }
       const dataUrl = await imageDataUrl(source);
       if (!dataUrl) {
+        failedSources.push(source);
         continue;
       }
-      result = result.replace(
-        `href="${match[1]}"`,
-        `href="${escapeXml(dataUrl)}"`,
+      const inlinedTag = tag.replace(
+        /\b(?:xlink:)?href="[^"]*"/gu,
+        (attribute) =>
+          `${attribute.startsWith("xlink:") ? "xlink:" : ""}href="${escapeXml(dataUrl)}"`,
       );
-      changed = true;
+      result = result.replace(
+        tag,
+        inlinedTag,
+      );
     }
-    return changed ? result : svg;
+    if (failedSources.length) {
+      throw new Error(`有 ${failedSources.length} 张封面无法内嵌，已停止导出以避免生成缺图`);
+    }
+    return result;
   }
 
   async function createImage(svg, width, height) {
-    let png;
-    try {
-      png = await pngBlob(svg, width, height);
-    } catch {
-      const inlineSvg = await inlineExternalImages(svg);
-      if (inlineSvg === svg) {
-        throw new Error("封面服务器不允许跨域导出 PNG，请使用下载 SVG");
-      }
-      png = await pngBlob(inlineSvg, width, height);
-    }
+    const exportSvg = await inlineExternalImages(svg);
+    const png = await pngBlob(exportSvg, width, height);
     return {
-      svg: svgBlob(svg),
+      svg: svgBlob(exportSvg),
       png,
     };
   }
@@ -1021,9 +1024,11 @@
     if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
       throw new Error("当前浏览器不支持复制图片");
     }
-    await navigator.clipboard.write([
-      new ClipboardItem({ "image/png": blob }),
-    ]);
+    const png = blob.type === "image/png"
+      ? blob
+      : new Blob([blob], { type: "image/png" });
+    const item = new ClipboardItem({ "image/png": png });
+    await navigator.clipboard.write([item]);
   }
 
   function showStatus(message, tone = "") {
@@ -1229,8 +1234,12 @@
     }
   }
 
-  function setDialogActionsDisabled(disabled) {
+  function setDialogActionsDisabled(disabled, actions = null) {
+    const selected = actions ? new Set(actions) : null;
     document.querySelectorAll("[data-share-action]").forEach((button) => {
+      if (selected && !selected.has(button.dataset.shareAction)) {
+        return;
+      }
       button.disabled = disabled;
     });
   }
@@ -1320,12 +1329,30 @@
       const image = dialog.querySelector(".share-dialog-image");
       image.alt = state.kind === "overview" ? "档案分享图片预览" : "番剧分享卡片预览";
       setDialogPreviewState("ready");
-      setDialogStatus(
-        result.width === 1600
-          ? `预览已更新 · ${result.width} × ${result.height}`
-          : "预览已更新 · 1200 × 1500",
-      );
-      setDialogActionsDisabled(false);
+      setDialogStatus("预览已生成，正在准备复制与下载图片…");
+      let exportError = null;
+      let preparedImage = null;
+      try {
+        preparedImage = await createImage(state.svg, state.width, state.height);
+      } catch (error) {
+        exportError = error;
+      }
+      if (token !== state.generation || shareDialogState !== state) {
+        return;
+      }
+      const sizeLabel = `${state.width} × ${state.height}`;
+      if (exportError) {
+        setDialogStatus(
+          `预览已生成 · PNG 导出不可用：${exportError.message || "图片准备失败"}`,
+          "error",
+        );
+        setDialogActionsDisabled(false);
+        setDialogActionsDisabled(true, ["copy", "download"]);
+      } else {
+        state.image = preparedImage;
+        setDialogStatus(`预览与 PNG 已准备 · ${sizeLabel}`, "success");
+        setDialogActionsDisabled(false);
+      }
     } catch (error) {
       if (token !== state.generation || shareDialogState !== state) {
         return;
@@ -1400,10 +1427,11 @@
     try {
       let image;
       if (action === "svg") {
-        image = { svg: svgBlob(state.svg) };
+        image = state.image ?? { svg: svgBlob(state.svg) };
       } else {
         if (!state.image) {
-          state.image = await createImage(state.svg, state.width, state.height);
+          setDialogStatus("PNG 尚未准备完成，请重新生成预览", "error");
+          return;
         }
         image = state.image;
       }
