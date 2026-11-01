@@ -1446,7 +1446,7 @@ function renderCacheManager() {
       ? `${progress.phaseLabel ?? "准备中"} · ${progress.completed ?? 0}/${progress.total ?? 0}` +
         (progress.speed ? ` · ${progress.speed.toFixed(1)} 条/秒` : "") +
         (progress.failed ? ` · 失败 ${progress.failed}` : "")
-      : "全量获取只写入本机缓存；点击“更新到仓库”后才会补充个人仓库中不存在的条目。";
+      : "";
   }
   elements.catalogMetadataFetchOptions?.classList.toggle(
     "is-busy",

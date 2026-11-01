@@ -144,4 +144,46 @@ test("Bangumi cache controls use page refresh, repository supplement, and collap
   assert.match(source, /mode: "supplement"/u);
   assert.match(source, /resolveAllBangumiMetadata\(items, \{\s*refresh,/u);
   assert.match(styles, /\.catalog-metadata-fetch-options/u);
+  assert.doesNotMatch(html, /全量获取只写入本机缓存/u);
+  assert.doesNotMatch(source, /全量获取只写入本机缓存/u);
+});
+
+test("catalog discovery keeps source status collapsed and merges advanced filters", async () => {
+  const [html, styles] = await Promise.all([
+    readAdminFile("index.html"),
+    readAdminFile("styles.css"),
+  ]);
+  const sourceStart = html.indexOf('id="catalogSourceSettings"');
+  const sourceEnd = html.indexOf("</details>", sourceStart);
+  const sourceSettings = html.slice(sourceStart, sourceEnd);
+  const publicPanel = html.indexOf('class="catalog-public-panel"');
+  const filterWorkbench = html.indexOf('class="catalog-filter-workbench"');
+  const search = html.indexOf('id="catalogSearch"');
+  const filterStart = html.indexOf(
+    '<section class="catalog-filter-workbench"',
+  );
+  const resultBar = html.indexOf('<div class="catalog-result-bar"', filterStart);
+  const filterMarkup = html.slice(filterStart, resultBar);
+
+  assert.match(sourceSettings, /id="catalogStatus"/u);
+  assert.match(sourceSettings, /id="catalogRefresh"/u);
+  assert.match(sourceSettings, /id="catalogIndexProgress"/u);
+  assert.ok(publicPanel > sourceStart);
+  assert.ok(publicPanel < filterWorkbench);
+  assert.ok(search > publicPanel);
+  for (const id of [
+    "catalogYearFilter",
+    "catalogMetadataScoreMin",
+    "catalogMetadataScoreMax",
+    "catalogTagFilter",
+    "catalogMetadataAvailability",
+    "catalogMetadataSort",
+    "catalogOwnership",
+    "catalogSource",
+  ]) {
+    assert.match(filterMarkup, new RegExp(`id="${id}"`, "u"));
+  }
+  assert.match(html, /<details class="catalog-filter-advanced">/u);
+  assert.match(styles, /\.catalog-filter-grid \{[\s\S]*?grid-template-columns: repeat\(3,/u);
+  assert.match(styles, /\.catalog-fetch-mode \{/u);
 });

@@ -379,16 +379,13 @@
                 <span class="eyebrow">索引设置</span>
                 <strong id="catalogSourceSummary">bangumi-data · 当前默认</strong>
               </span>
-              <span class="catalog-source-summary-note">来源、版本与数据授权</span>
+              <span class="catalog-source-summary-note">来源、版本、缓存与更新</span>
             </summary>
             <div class="catalog-source-body">
               <div class="catalog-source-current">
                 <span>当前索引来源</span>
                 <strong>bangumi-data</strong>
-                <p>
-                  默认使用当前 bangumi-data 全量番剧索引；浏览器会缓存索引，
-                  24 小时内复用，也可以随时手动检查更新。
-                </p>
+                <p>模板内置索引可直接使用，也可在这里替换为最新完整索引。</p>
               </div>
               <dl class="catalog-source-details">
                 <div>
@@ -404,6 +401,20 @@
                   <dd id="catalogSourceLicense">CC BY 4.0</dd>
                 </div>
               </dl>
+              <div class="catalog-source-runtime">
+                <div class="catalog-meta">
+                  <span id="catalogStatus">首次进入时才加载全量索引</span>
+                  <button id="catalogRefresh" class="text-button" type="button">
+                    下载并替换
+                  </button>
+                </div>
+                <div class="catalog-index-progress" aria-live="polite">
+                  <progress id="catalogIndexProgress" max="1" value="0" hidden></progress>
+                  <span id="catalogIndexProgressLabel">
+                    新索引完整下载并建立成功后，才会替换当前本机索引。
+                  </span>
+                </div>
+              </div>
               <p class="catalog-source-thanks">
                 数据来自 bangumi-data，也感谢 Bangumi、Bilibili、AniList、
                 MyAnimeList 以及所有条目贡献者持续维护公开番剧资料。
@@ -427,84 +438,13 @@
             </div>
           </details>
 
-          <div class="catalog-meta">
-            <span id="catalogStatus">首次进入时才加载全量索引</span>
-            <button id="catalogRefresh" class="text-button" type="button">
-              下载并替换索引
-            </button>
-          </div>
-          <div class="catalog-index-progress" aria-live="polite">
-            <progress id="catalogIndexProgress" max="1" value="0" hidden></progress>
-            <span id="catalogIndexProgressLabel">
-              新索引完整下载并建立成功后，才会替换当前本机索引。
-            </span>
-          </div>
-
-          <div class="toolbar catalog-toolbar">
-            <label class="search-field">
-              <span class="visually-hidden">搜索全量番剧索引</span>
-              <input
-                id="catalogSearch"
-                type="search"
-                placeholder="搜索中文名、原名或站点 ID"
-                autocomplete="off"
-              />
-            </label>
-            <div class="catalog-multi-filter">
-              <button
-                id="catalogYearFilter"
-                class="catalog-multi-filter-trigger"
-                type="button"
-                aria-expanded="false"
-                aria-controls="catalogYearPanel"
-              >
-                <span class="catalog-multi-filter-label">年份</span>
-                <strong id="catalogYearSummary">全部年份</strong>
-              </button>
-            </div>
-            <label class="compact-field">
-              <span>收录状态</span>
-              <select id="catalogOwnership">
-                <option value="">全部番剧</option>
-                <option value="unowned">未收录</option>
-                <option value="owned">已有记录</option>
-              </select>
-            </label>
-            <label class="compact-field">
-              <span>站点</span>
-              <select id="catalogSource">
-                <option value="">全部</option>
-              </select>
-            </label>
-          </div>
-
-          <section
-            id="catalogYearPanel"
-            class="catalog-multi-filter-panel"
-            aria-label="年份筛选"
-            hidden
-          >
-            <div class="catalog-multi-filter-heading">
-              <span>可多选年份</span>
-              <div class="catalog-multi-filter-actions">
-                <button id="catalogYearClear" class="text-button" type="button" disabled>
-                  清空
-                </button>
-                <button id="catalogYearClose" class="text-button" type="button">
-                  收起
-                </button>
-              </div>
-            </div>
-            <div id="catalogYearOptions" class="catalog-year-options"></div>
-          </section>
-
           <details class="catalog-public-panel">
             <summary class="catalog-public-heading">
               <span class="catalog-public-heading-main">
                 <span class="catalog-public-mark" aria-hidden="true">B</span>
                 <span class="catalog-public-title">
                   <strong>Bangumi 评分与标签</strong>
-                <small>bangumi-data 索引关联的公共 Bangumi 数据 · 本机优先</small>
+                  <small>公共评分与标签 · 本机缓存优先</small>
                 </span>
               </span>
               <span class="catalog-public-heading-state">
@@ -584,21 +524,27 @@
                 <summary>
                   <span>
                     <strong>全量获取</strong>
-                    <small>平时自动读取个人与本机缓存；需要批量补全公共评分和标签时再展开</small>
+                    <small>按需批量补全公共评分与标签</small>
                   </span>
-                  <span>增量 / 全量重新获取</span>
+                  <span>增量 / 重取</span>
                 </summary>
                 <div class="catalog-metadata-fetch-body">
-                  <div>
-                    <strong>增量获取</strong>
-                    <p>只请求个人和本机尚未缓存的条目，已存在的评分与标签保持不变。</p>
+                  <div class="catalog-fetch-mode">
+                    <span class="catalog-fetch-mode-mark" aria-hidden="true">+</span>
+                    <span class="catalog-fetch-mode-copy">
+                      <strong>补全缺失</strong>
+                      <small>保留已有缓存，适合日常更新</small>
+                    </span>
                     <button id="catalogMetadataFetchIncremental" class="button button-primary" type="button">
-                      开始增量获取
+                      增量获取
                     </button>
                   </div>
-                  <div>
-                    <strong>全量重新获取</strong>
-                    <p>重新读取全部关联条目并覆盖本机公共数据，耗时和请求量明显更高。</p>
+                  <div class="catalog-fetch-mode is-replace">
+                    <span class="catalog-fetch-mode-mark" aria-hidden="true">↻</span>
+                    <span class="catalog-fetch-mode-copy">
+                      <strong>刷新全部</strong>
+                      <small>覆盖本机公共缓存</small>
+                    </span>
                     <button id="catalogMetadataFetchFull" class="button button-quiet" type="button">
                       全量重新获取
                     </button>
@@ -610,44 +556,23 @@
               </p>
               <div class="catalog-metadata-progress" aria-live="polite">
                 <progress id="catalogMetadataProgress" max="1" value="0" hidden></progress>
-                <span id="catalogMetadataProgressLabel">全量获取只写入本机缓存；点击“更新到仓库”后才会补充个人仓库中不存在的条目。</span>
+                <span id="catalogMetadataProgressLabel"></span>
               </div>
             </div>
-            <div class="catalog-public-controls">
-              <div class="filter-range catalog-public-score" role="group" aria-label="Bangumi 评分范围">
-                <span class="filter-range-label">Bangumi 评分</span>
-                <div class="filter-range-inputs">
-                  <label>
-                    <span class="visually-hidden">最低 Bangumi 评分</span>
-                    <input id="catalogMetadataScoreMin" type="number" min="0" max="10" step="0.1" inputmode="decimal" placeholder="最低" />
-                  </label>
-                  <span aria-hidden="true">至</span>
-                  <label>
-                    <span class="visually-hidden">最高 Bangumi 评分</span>
-                    <input id="catalogMetadataScoreMax" type="number" min="0" max="10" step="0.1" inputmode="decimal" placeholder="最高" />
-                  </label>
-                </div>
-              </div>
-              <div class="catalog-multi-filter catalog-tag-filter">
-                <button
-                  id="catalogTagFilter"
-                  class="catalog-multi-filter-trigger"
-                  type="button"
-                  aria-expanded="false"
-                  aria-controls="catalogTagPanel"
-                  <span class="catalog-multi-filter-label">标签</span>
-                  <strong id="catalogTagSummary">全部标签</strong>
-                </button>
-              </div>
-              <label class="compact-field">
-                <span>Bangumi 信息</span>
-                <select id="catalogMetadataAvailability">
-                  <option value="all" selected>全部番剧</option>
-                  <option value="available">已有 Bangumi 信息</option>
-                  <option value="unavailable">暂无 Bangumi 信息</option>
-                </select>
+          </details>
+
+          <section class="catalog-filter-workbench" aria-label="索引搜索与筛选">
+            <div class="catalog-filter-search-row">
+              <label class="search-field">
+                <span class="visually-hidden">搜索全量番剧索引</span>
+                <input
+                  id="catalogSearch"
+                  type="search"
+                  placeholder="搜索中文名、原名或站点 ID"
+                  autocomplete="off"
+                />
               </label>
-              <label class="compact-field">
+              <label class="compact-field catalog-filter-sort">
                 <span>排序</span>
                 <select id="catalogMetadataSort">
                   <option value="default" selected>索引默认：最新优先</option>
@@ -656,26 +581,116 @@
                 </select>
               </label>
             </div>
-            <section
-              id="catalogTagPanel"
-              class="catalog-multi-filter-panel catalog-tag-panel"
-              aria-label="Bangumi 标签筛选"
-              hidden
-            >
-              <div class="catalog-multi-filter-heading">
-                <span>可多选 · 匹配任一标签</span>
-                <div class="catalog-multi-filter-actions">
-                  <button id="catalogTagClear" class="text-button" type="button" disabled>
-                    清空
-                  </button>
-                  <button id="catalogTagClose" class="text-button" type="button">
-                    收起
+            <details class="catalog-filter-advanced">
+              <summary>
+                <span>
+                  <strong>筛选条件</strong>
+                  <small>年份、评分、标签、收录状态与站点</small>
+                </span>
+                <span class="catalog-filter-advanced-action">展开</span>
+              </summary>
+              <div class="catalog-filter-grid">
+                <div class="catalog-multi-filter">
+                  <button
+                    id="catalogYearFilter"
+                    class="catalog-multi-filter-trigger"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="catalogYearPanel"
+                  >
+                    <span class="catalog-multi-filter-label">年份</span>
+                    <strong id="catalogYearSummary">全部年份</strong>
                   </button>
                 </div>
+                <div class="filter-range catalog-public-score" role="group" aria-label="Bangumi 评分范围">
+                  <span class="filter-range-label">Bangumi 评分</span>
+                  <div class="filter-range-inputs">
+                    <label>
+                      <span class="visually-hidden">最低 Bangumi 评分</span>
+                      <input id="catalogMetadataScoreMin" type="number" min="0" max="10" step="0.1" inputmode="decimal" placeholder="最低" />
+                    </label>
+                    <span aria-hidden="true">至</span>
+                    <label>
+                      <span class="visually-hidden">最高 Bangumi 评分</span>
+                      <input id="catalogMetadataScoreMax" type="number" min="0" max="10" step="0.1" inputmode="decimal" placeholder="最高" />
+                    </label>
+                  </div>
+                </div>
+                <div class="catalog-multi-filter catalog-tag-filter">
+                  <button
+                    id="catalogTagFilter"
+                    class="catalog-multi-filter-trigger"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="catalogTagPanel"
+                  >
+                    <span class="catalog-multi-filter-label">标签</span>
+                    <strong id="catalogTagSummary">全部标签</strong>
+                  </button>
+                </div>
+                <label class="compact-field">
+                  <span>Bangumi 信息</span>
+                  <select id="catalogMetadataAvailability">
+                    <option value="all" selected>全部番剧</option>
+                    <option value="available">已有 Bangumi 信息</option>
+                    <option value="unavailable">暂无 Bangumi 信息</option>
+                  </select>
+                </label>
+                <label class="compact-field">
+                  <span>收录状态</span>
+                  <select id="catalogOwnership">
+                    <option value="">全部番剧</option>
+                    <option value="unowned">未收录</option>
+                    <option value="owned">已有记录</option>
+                  </select>
+                </label>
+                <label class="compact-field">
+                  <span>站点</span>
+                  <select id="catalogSource">
+                    <option value="">全部</option>
+                  </select>
+                </label>
               </div>
-              <div id="catalogTagOptions" class="catalog-year-options"></div>
-            </section>
-          </details>
+              <section
+                id="catalogYearPanel"
+                class="catalog-multi-filter-panel"
+                aria-label="年份筛选"
+                hidden
+              >
+                <div class="catalog-multi-filter-heading">
+                  <span>可多选年份</span>
+                  <div class="catalog-multi-filter-actions">
+                    <button id="catalogYearClear" class="text-button" type="button" disabled>
+                      清空
+                    </button>
+                    <button id="catalogYearClose" class="text-button" type="button">
+                      收起
+                    </button>
+                  </div>
+                </div>
+                <div id="catalogYearOptions" class="catalog-year-options"></div>
+              </section>
+              <section
+                id="catalogTagPanel"
+                class="catalog-multi-filter-panel catalog-tag-panel"
+                aria-label="Bangumi 标签筛选"
+                hidden
+              >
+                <div class="catalog-multi-filter-heading">
+                  <span>可多选 · 匹配任一标签</span>
+                  <div class="catalog-multi-filter-actions">
+                    <button id="catalogTagClear" class="text-button" type="button" disabled>
+                      清空
+                    </button>
+                    <button id="catalogTagClose" class="text-button" type="button">
+                      收起
+                    </button>
+                  </div>
+                </div>
+                <div id="catalogTagOptions" class="catalog-year-options"></div>
+              </section>
+            </details>
+          </section>
 
           <div class="catalog-result-bar">
             <span id="catalogResultLabel">尚未加载</span>
