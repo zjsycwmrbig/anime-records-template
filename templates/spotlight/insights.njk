@@ -343,17 +343,17 @@
                   <div class="tag-rating-deviation-list">
                     {% for group in insights.tagRatingDeviation %}
                       <section class="tag-rating-deviation-row" data-tag-count="{{ group.count }}">
-                        <header>
-                          <div><strong>{{ group.label }}</strong><small>{{ group.count }} 部带此标签 · 我的 {{ group.personalRated }} 部 · 公共 {{ group.publicRated }} 部</small></div>
+                        <header class="tag-rating-deviation-head">
+                          <div class="tag-rating-deviation-name"><strong>{{ group.label }}</strong><small>{{ group.count }} 部带此标签 · 我的 {{ group.personalRated }} 部 · 公共 {{ group.publicRated }} 部</small></div>
+                          <div class="tag-rating-deviation-summary">
+                            <div class="tag-rating-deviation-stat is-personal"><span>我的</span><strong>{{ group.personalAverageDisplay }}</strong></div>
+                            <div class="tag-rating-deviation-stat is-public"><span>公共</span><strong>{{ group.publicAverageDisplay }}</strong></div>
+                            <div class="tag-rating-deviation-stat is-{{ group.deviationTone }}"><span>偏离</span><strong>{{ group.deviationDisplay }}</strong></div>
+                          </div>
                         </header>
-                        <div class="tag-rating-deviation-summary">
-                          <div class="tag-rating-deviation-stat is-personal"><span>我的平均</span><strong>{{ group.personalAverageDisplay }}</strong></div>
-                          <div class="tag-rating-deviation-stat is-public"><span>公共平均</span><strong>{{ group.publicAverageDisplay }}</strong></div>
-                          <div class="tag-rating-deviation-stat is-{{ group.deviationTone }}"><span>评分偏离</span><strong>{{ group.deviationDisplay }}</strong></div>
-                        </div>
                         <div class="tag-rating-deviation-bars" aria-label="{{ group.label }}的我的评分与公共评分">
-                          <div class="tag-rating-deviation-bar-row is-personal"><strong>我的平均</strong><span class="tag-rating-deviation-track"><i class="tag-rating-deviation-bar is-personal" style="--rating-size: {{ group.personalPercent }}%" title="我的平均评分：{% if group.personalAverage is not null %}{{ group.personalAverage.toFixed(1) }}{% else %}暂无{% endif %}"></i></span></div>
-                          <div class="tag-rating-deviation-bar-row is-public"><strong>公共平均</strong><span class="tag-rating-deviation-track"><i class="tag-rating-deviation-bar is-public" style="--rating-size: {{ group.publicPercent }}%" title="公共平均评分：{% if group.publicAverage is not null %}{{ group.publicAverage.toFixed(1) }}{% else %}暂无{% endif %}"></i></span></div>
+                          <div class="tag-rating-deviation-bar-row is-personal{% if group.deviationTone == "positive" %} is-leading{% endif %}"><strong>我的平均</strong><span class="tag-rating-deviation-track"><i class="tag-rating-deviation-bar is-personal" style="--rating-size: {{ group.personalPercent }}%" title="我的平均评分：{% if group.personalAverage is not null %}{{ group.personalAverage.toFixed(1) }}{% else %}暂无{% endif %}"></i></span><em>{% if group.deviationTone == "positive" %}我更高{% elif group.deviationTone == "negative" %}我较低{% elif group.deviationTone == "neutral" %}暂无对比{% else %}持平{% endif %}</em></div>
+                          <div class="tag-rating-deviation-bar-row is-public{% if group.deviationTone == "negative" %} is-leading{% endif %}"><strong>公共平均</strong><span class="tag-rating-deviation-track"><i class="tag-rating-deviation-bar is-public" style="--rating-size: {{ group.publicPercent }}%" title="公共平均评分：{% if group.publicAverage is not null %}{{ group.publicAverage.toFixed(1) }}{% else %}暂无{% endif %}"></i></span><em>{% if group.deviationTone == "negative" %}公共更高{% elif group.deviationTone == "positive" %}公共较低{% elif group.deviationTone == "neutral" %}暂无对比{% else %}持平{% endif %}</em></div>
                         </div>
                       </section>
                     {% endfor %}
