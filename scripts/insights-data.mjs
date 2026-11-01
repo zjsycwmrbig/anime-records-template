@@ -592,6 +592,8 @@ function ratingDeviationByTags(records, siteConfig, entries = []) {
   }
 
   return [...groups.values()]
+    // A one-work tag cannot provide a useful cross-work comparison.
+    .filter((group) => group.count > 1)
     .map((group) => {
       const personalAverage = average(group.personalRatings);
       const publicAverage = average(group.publicRatings);

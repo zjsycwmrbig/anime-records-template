@@ -1146,67 +1146,86 @@
 }
 
 .tag-rating-deviation-row header small,
-.tag-rating-deviation-values span {
+.tag-rating-deviation-stat span {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9px;
+  font-weight: 750;
 }
 
-.tag-rating-deviation-row header em {
-  flex: 0 0 auto;
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-}
-
-.tag-rating-deviation-row header em.is-positive,
-.tag-rating-deviation-values strong.is-positive {
+.tag-rating-deviation-stat.is-positive strong {
   color: var(--teal);
 }
 
-.tag-rating-deviation-row header em.is-negative,
-.tag-rating-deviation-values strong.is-negative {
+.tag-rating-deviation-stat.is-negative strong {
   color: var(--accent);
 }
 
-.tag-rating-deviation-row header em.is-even,
-.tag-rating-deviation-row header em.is-neutral,
-.tag-rating-deviation-values strong.is-even,
-.tag-rating-deviation-values strong.is-neutral {
+.tag-rating-deviation-stat.is-even strong,
+.tag-rating-deviation-stat.is-neutral strong {
   color: var(--muted);
 }
 
-.tag-rating-deviation-values {
+.tag-rating-deviation-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 10px;
+  align-items: end;
 }
 
-.tag-rating-deviation-values > div {
+.tag-rating-deviation-stat {
   display: grid;
-  gap: 2px;
-  padding: 6px 8px;
-  background: var(--paper);
+  min-width: 0;
+  gap: 3px;
 }
 
-.tag-rating-deviation-values strong {
+.tag-rating-deviation-stat strong {
   font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .tag-rating-deviation-bars {
   display: grid;
-  gap: 4px;
+  gap: 6px;
+}
+
+.tag-rating-deviation-bar-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.tag-rating-deviation-bar-row > strong {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.tag-rating-deviation-bar-row.is-personal > strong {
+  color: var(--accent);
+}
+
+.tag-rating-deviation-bar-row.is-public > strong {
+  color: var(--teal);
+}
+
+.tag-rating-deviation-track {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--line);
 }
 
 .tag-rating-deviation-bar {
   display: block;
   width: var(--rating-size);
   min-width: 2px;
-  height: 4px;
-  border-radius: 2px;
+  height: 100%;
+  border-radius: inherit;
 }
 
 .tag-rating-deviation-bar.is-personal {
@@ -2140,11 +2159,11 @@
 
 
 @media (max-width: 520px) {
-  .tag-rating-deviation-values {
-    grid-template-columns: 1fr 1fr;
+  .tag-rating-deviation-summary {
+    gap: 7px;
   }
-  .tag-rating-deviation-values > div:last-child {
-    grid-column: 1 / -1;
+  .tag-rating-deviation-stat strong {
+    font-size: 16px;
   }
 
   .tag-radar-visual {

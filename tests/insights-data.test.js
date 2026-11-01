@@ -364,7 +364,7 @@ test("splits rated works by normalized tags", () => {
   );
 });
 
-test("orders tag rating deviation by tagged anime count", () => {
+test("filters single-anime tags and orders deviation by tagged anime count", () => {
   const insights = calculateInsights(
     [
       record({
@@ -405,10 +405,7 @@ test("orders tag rating deviation by tagged anime count", () => {
 
   assert.deepEqual(
     insights.tagRatingDeviation.map((group) => [group.label, group.count]),
-    [
-      ["科幻", 3],
-      ["奇幻", 1],
-    ],
+    [["科幻", 3]],
   );
   assert.equal(insights.tagRatingDeviation[0].personalAverage, 8);
   assert.equal(insights.tagRatingDeviation[0].publicAverage, 7);
