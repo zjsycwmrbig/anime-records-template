@@ -342,7 +342,7 @@
                 {% if insights.tagRatingDeviation.length %}
                   <div class="tag-rating-deviation-list">
                     {% for group in insights.tagRatingDeviation %}
-                      <section class="tag-rating-deviation-row">
+                      <section class="tag-rating-deviation-row" data-tag-count="{{ group.count }}">
                         <header>
                           <div><strong>{{ group.label }}</strong><small>{{ group.count }} 部带此标签 · 我的 {{ group.personalRated }} 部 · 公共 {{ group.publicRated }} 部</small></div>
                           <em class="is-{{ group.deviationTone }}">{{ group.deviationDisplay }}</em>
@@ -359,6 +359,11 @@
                       </section>
                     {% endfor %}
                   </div>
+                  <nav class="tag-rating-deviation-pagination" aria-label="标签评分偏离分页">
+                    <button type="button" class="insight-pagination-button" data-tag-deviation-prev aria-label="上一页">上一页</button>
+                    <span data-tag-deviation-status aria-live="polite">第 1 页</span>
+                    <button type="button" class="insight-pagination-button" data-tag-deviation-next aria-label="下一页">下一页</button>
+                  </nav>
                 {% else %}
                   <p class="panel-empty">当前没有同时具备标签与评分数据的作品。</p>
                 {% endif %}

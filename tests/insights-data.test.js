@@ -364,6 +364,59 @@ test("splits rated works by normalized tags", () => {
   );
 });
 
+test("orders tag rating deviation by tagged anime count", () => {
+  const insights = calculateInsights(
+    [
+      record({
+        id: "deviation-a",
+        rating: 9,
+        externalIds: { bangumi: "1" },
+        publicTags: ["科幻"],
+      }),
+      record({
+        id: "deviation-b",
+        rating: 7,
+        externalIds: { bangumi: "2" },
+        publicTags: ["科幻"],
+      }),
+      record({
+        id: "deviation-c",
+        externalIds: { bangumi: "3" },
+        publicTags: ["科幻"],
+      }),
+      record({
+        id: "deviation-d",
+        rating: 8,
+        externalIds: { bangumi: "4" },
+        publicTags: ["奇幻"],
+      }),
+    ],
+    new Date("2026-10-25T12:00:00.000Z"),
+    {},
+    {
+      bangumiCacheEntries: [
+        { subjectId: "1", score: 7 },
+        { subjectId: "2", score: 8 },
+        { subjectId: "3", score: 6 },
+        { subjectId: "4", score: 9 },
+      ],
+    },
+  );
+
+  assert.deepEqual(
+    insights.tagRatingDeviation.map((group) => [group.label, group.count]),
+    [
+      ["科幻", 3],
+      ["奇幻", 1],
+    ],
+  );
+  assert.equal(insights.tagRatingDeviation[0].personalAverage, 8);
+  assert.equal(insights.tagRatingDeviation[0].publicAverage, 7);
+  assert.equal(insights.tagRatingDeviation[0].deviation, 1);
+  assert.equal(insights.tagRatingDeviation[0].personalRated, 2);
+  assert.equal(insights.tagRatingDeviation[0].publicRated, 3);
+});
+
 test("keeps manual tag radar order and exposes zero-count axes", () => {
   const now = new Date("2026-10-25T12:00:00.000Z");
   const insights = calculateInsights(

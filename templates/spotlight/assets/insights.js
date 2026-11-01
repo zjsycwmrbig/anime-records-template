@@ -434,6 +434,59 @@
     applyTagRatingSort();
   }
 
+  const tagDeviationList = document.querySelector(".tag-rating-deviation-list");
+  const tagDeviationPagination = document.querySelector(
+    ".tag-rating-deviation-pagination",
+  );
+  if (tagDeviationList && tagDeviationPagination) {
+    const tagDeviationRows = [
+      ...tagDeviationList.querySelectorAll(".tag-rating-deviation-row"),
+    ];
+    const previousButton = tagDeviationPagination.querySelector(
+      "[data-tag-deviation-prev]",
+    );
+    const nextButton = tagDeviationPagination.querySelector(
+      "[data-tag-deviation-next]",
+    );
+    const status = tagDeviationPagination.querySelector(
+      "[data-tag-deviation-status]",
+    );
+    const pageSize = 10;
+    let page = 0;
+
+    tagDeviationRows.sort((left, right) => {
+      const leftCount = Number.parseInt(left.dataset.tagCount ?? "", 10) || 0;
+      const rightCount = Number.parseInt(right.dataset.tagCount ?? "", 10) || 0;
+      return rightCount - leftCount;
+    });
+    tagDeviationList.append(...tagDeviationRows);
+
+    const renderTagDeviationPage = () => {
+      const pageCount = Math.max(1, Math.ceil(tagDeviationRows.length / pageSize));
+      page = Math.min(page, pageCount - 1);
+      const start = page * pageSize;
+      tagDeviationRows.forEach((row, rowIndex) => {
+        row.hidden = rowIndex < start || rowIndex >= start + pageSize;
+      });
+      tagDeviationPagination.hidden = pageCount <= 1;
+      if (status) {
+        status.textContent = `第 ${page + 1} / ${pageCount} 页 · 共 ${tagDeviationRows.length} 个标签`;
+      }
+      if (previousButton) previousButton.disabled = page === 0;
+      if (nextButton) nextButton.disabled = page >= pageCount - 1;
+    };
+
+    previousButton?.addEventListener("click", () => {
+      page -= 1;
+      renderTagDeviationPage();
+    });
+    nextButton?.addEventListener("click", () => {
+      page += 1;
+      renderTagDeviationPage();
+    });
+    renderTagDeviationPage();
+  }
+
   const yearDistribution = document.querySelector("#year-distribution");
   const yearMinInput = document.querySelector("#insights-year-min");
   const yearMaxInput = document.querySelector("#insights-year-max");

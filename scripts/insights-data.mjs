@@ -536,6 +536,9 @@ function normalizedCacheSubjectId(record) {
 }
 
 function finiteRating(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
   const rating = Number(value);
   return Number.isFinite(rating) && rating >= 0 && rating <= 10
     ? rating
@@ -627,15 +630,12 @@ function ratingDeviationByTags(records, siteConfig, entries = []) {
       };
     })
     .sort((left, right) => {
-      const leftDeviation = left.deviation === null
-        ? -1
-        : Math.abs(left.deviation);
-      const rightDeviation = right.deviation === null
-        ? -1
-        : Math.abs(right.deviation);
       return (
-        rightDeviation - leftDeviation ||
         right.count - left.count ||
+        right.personalRated - left.personalRated ||
+        right.publicRated - left.publicRated ||
+        (right.deviation === null ? -1 : Math.abs(right.deviation)) -
+          (left.deviation === null ? -1 : Math.abs(left.deviation)) ||
         left.label.localeCompare(right.label, "zh-CN")
       );
     });

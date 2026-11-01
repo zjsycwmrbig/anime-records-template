@@ -1111,15 +1111,13 @@
 
 .tag-rating-deviation-list {
   display: grid;
-  max-height: 520px;
-  overflow-y: auto;
   padding-right: 8px;
 }
 
 .tag-rating-deviation-row {
   display: grid;
-  gap: 10px;
-  padding: 15px 0;
+  gap: 7px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--line);
 }
 
@@ -1131,7 +1129,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
+  gap: 10px;
 }
 
 .tag-rating-deviation-row header > div {
@@ -1142,7 +1140,7 @@
 
 .tag-rating-deviation-row header strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1150,13 +1148,13 @@
 .tag-rating-deviation-row header small,
 .tag-rating-deviation-values span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .tag-rating-deviation-row header em {
   flex: 0 0 auto;
   font-family: var(--font-display);
-  font-size: 21px;
+  font-size: 18px;
   font-style: normal;
   font-variant-numeric: tabular-nums;
 }
@@ -1181,34 +1179,34 @@
 .tag-rating-deviation-values {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .tag-rating-deviation-values > div {
   display: grid;
-  gap: 4px;
-  padding: 8px 10px;
+  gap: 2px;
+  padding: 6px 8px;
   background: var(--paper);
 }
 
 .tag-rating-deviation-values strong {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .tag-rating-deviation-bars {
   display: grid;
-  gap: 5px;
+  gap: 4px;
 }
 
 .tag-rating-deviation-bar {
   display: block;
   width: var(--rating-size);
   min-width: 2px;
-  height: 6px;
-  border-radius: 3px;
+  height: 4px;
+  border-radius: 2px;
 }
 
 .tag-rating-deviation-bar.is-personal {
@@ -1217,6 +1215,41 @@
 
 .tag-rating-deviation-bar.is-public {
   background: var(--teal);
+}
+
+.tag-rating-deviation-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.insight-pagination-button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+.insight-pagination-button:hover:not(:disabled),
+.insight-pagination-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.insight-pagination-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 
 @media (max-width: 980px) {
@@ -2082,7 +2115,7 @@
     max-height: 420px;
   }
   .tag-rating-deviation-list {
-    max-height: 460px;
+    max-height: none;
   }
   .carousel-viewport {
     padding: 18px;
