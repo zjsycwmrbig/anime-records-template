@@ -825,8 +825,8 @@ h2 {
 }
 
 .catalog-index-progress {
-  min-height: 32px;
-  padding: 7px 10px 0;
+  min-height: 30px;
+  padding: 8px 0 2px;
   display: grid;
   grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.2fr);
   align-items: center;
@@ -927,14 +927,38 @@ h2 {
 .catalog-source-runtime .catalog-meta {
   min-height: 38px;
   margin: 0;
+  padding: 8px 0;
   border: 0;
+  border-bottom: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
 }
 
+.catalog-source-runtime .catalog-meta-status {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.catalog-source-runtime .catalog-meta-status > i {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.catalog-source-runtime .catalog-meta-status > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .catalog-source-runtime .catalog-index-progress {
-  padding: 8px 10px;
-  border-top: 1px solid var(--line);
+  padding: 8px 0 2px;
+  border-top: 0;
   background: var(--surface-muted);
 }
 
@@ -1033,22 +1057,20 @@ h2 {
 }
 
 .catalog-filter-workbench {
-  margin-top: 12px;
+  margin-top: 24px;
   padding: 12px;
   display: grid;
-  gap: 8px;
+  gap: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
-  background:
-    linear-gradient(135deg, var(--surface-glow), transparent 54%),
-    var(--surface);
+  background: var(--surface-muted);
 }
 
 .catalog-filter-search-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(210px, 260px);
+  grid-template-columns: minmax(220px, 1fr) minmax(210px, 260px);
   align-items: end;
-  gap: 10px;
+  gap: 12px;
 }
 
 .catalog-filter-search-row .search-field {
@@ -1065,8 +1087,8 @@ h2 {
 }
 
 .catalog-filter-advanced > summary {
-  min-height: 36px;
-  padding: 7px 2px 0;
+  min-height: 40px;
+  padding: 9px 2px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1087,7 +1109,7 @@ h2 {
 
 .catalog-filter-advanced > summary strong {
   color: var(--ink);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .catalog-filter-advanced > summary small {
@@ -1101,7 +1123,7 @@ h2 {
 
 .catalog-filter-advanced-action {
   color: var(--accent-dark);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 760;
 }
 
@@ -1116,7 +1138,7 @@ h2 {
 }
 
 .catalog-filter-grid {
-  padding-top: 10px;
+  padding: 10px 0 1px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
