@@ -29,6 +29,7 @@ import {
   parseBangumiCacheJsonl,
   removeBangumiCacheEntries,
   serializeBangumiCache,
+  supplementBangumiCacheEntries,
 } from "../scripts/bangumi-cache-data.mjs";
 
 const API_ROOT = "https://api.github.com";
@@ -921,6 +922,11 @@ export class GitHubAdminStore {
         throw new Error("合并 Bangumi 缓存时缺少 entries");
       }
       entries = mergeBangumiCacheEntries(currentEntries, input.entries);
+    } else if (mode === "supplement") {
+      if (!Array.isArray(input.entries)) {
+        throw new Error("补充 Bangumi 缓存时缺少 entries");
+      }
+      entries = supplementBangumiCacheEntries(currentEntries, input.entries);
     } else {
       throw new Error(`不支持的 Bangumi 缓存操作：${mode}`);
     }

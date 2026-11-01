@@ -663,6 +663,63 @@ test("publishes merged personal Bangumi cache with one file commit", async () =>
   );
 });
 
+test("publishes supplement mode without replacing an existing subject", async () => {
+  const initialText = serializeBangumiCache([
+    {
+      subjectId: "201",
+      score: 8.1,
+      fetchedAt: "2026-10-27T08:00:00Z",
+      source: "bangumi-archive",
+    },
+  ]);
+  let published = null;
+  const client = {
+    token: "github_pat_secret",
+    async loadSnapshot() {
+      return {
+        headSha: "a".repeat(40),
+        baseTreeSha: "b".repeat(40),
+        config: { bangumiCacheFile: "data/bangumi-cache.jsonl" },
+        bangumiCache: parseBangumiCacheJsonl(initialText),
+        bangumiCacheText: initialText,
+      };
+    },
+    async publishFileChange(_snapshot, _filePath, text) {
+      published = text;
+      return { commit: "d".repeat(40), commitShort: "ddddddd" };
+    },
+  };
+  const store = new GitHubAdminStore(client);
+
+  const result = await store.saveBangumiCache({
+    mode: "supplement",
+    entries: [
+      {
+        subjectId: "201",
+        score: 9.9,
+        fetchedAt: "2026-10-27T12:00:00Z",
+        source: "bangumi-api",
+      },
+      {
+        subjectId: "202",
+        score: 9.2,
+        fetchedAt: "2026-10-27T11:00:00Z",
+        source: "bangumi-api",
+      },
+    ],
+  });
+
+  const entries = parseBangumiCacheJsonl(published);
+  assert.deepEqual(
+    entries.map((entry) => [entry.subjectId, entry.score]),
+    [
+      ["201", 8.1],
+      ["202", 9.2],
+    ],
+  );
+  assert.equal(result.count, 2);
+});
+
 test("turns a stale branch update into an actionable conflict", async () => {
   const oldLibrary = buildLibraryData([baseRecord]);
   const nextLibrary = buildLibraryData([

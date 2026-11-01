@@ -569,41 +569,48 @@
                 </span>
                 <code id="catalogMetadataPersonalFile">data/bangumi-cache.jsonl</code>
               </div>
-              <div class="catalog-cache-actions">
-                <button id="catalogMetadataFetchAll" class="button button-primary" type="button">
-                  获取全量公共数据
+              <div class="catalog-cache-actions" aria-label="Bangumi 公共数据操作">
+                <button id="catalogMetadataRefresh" class="button button-quiet" type="button">
+                  本页重新获取
                 </button>
-                <button id="catalogMetadataCancelAll" class="button button-quiet" type="button" hidden>
+                <button id="catalogMetadataUpdateRepository" class="button button-primary" type="button">
+                  更新到仓库
+                </button>
+                <button id="catalogMetadataCancelAll" class="button button-danger" type="button" hidden>
                   停止获取
                 </button>
-                <button id="catalogMetadataReload" class="button button-quiet" type="button">
-                  从仓库装填
-                </button>
-                <button id="catalogMetadataSavePage" class="button button-primary" type="button">
-                  保存本页
-                </button>
-                <button id="catalogMetadataSyncAll" class="button button-quiet" type="button">
-                  合并本机
-                </button>
-                <button id="catalogMetadataSaveAll" class="button button-quiet" type="button">
-                  保存本机缓存
-                </button>
-                <button id="catalogMetadataRemovePage" class="button button-quiet" type="button">
-                  移除本页
-                </button>
-                <button id="catalogMetadataClearLocal" class="text-button" type="button">
-                  清空本机
-                </button>
-                <button id="catalogMetadataClearPersonal" class="text-button is-danger" type="button">
-                  清空个人
-                </button>
               </div>
+              <details id="catalogMetadataFetchOptions" class="catalog-metadata-fetch-options">
+                <summary>
+                  <span>
+                    <strong>全量获取</strong>
+                    <small>平时自动读取个人与本机缓存；需要批量补全公共评分和标签时再展开</small>
+                  </span>
+                  <span>增量 / 全量重新获取</span>
+                </summary>
+                <div class="catalog-metadata-fetch-body">
+                  <div>
+                    <strong>增量获取</strong>
+                    <p>只请求个人和本机尚未缓存的条目，已存在的评分与标签保持不变。</p>
+                    <button id="catalogMetadataFetchIncremental" class="button button-primary" type="button">
+                      开始增量获取
+                    </button>
+                  </div>
+                  <div>
+                    <strong>全量重新获取</strong>
+                    <p>重新读取全部关联条目并覆盖本机公共数据，耗时和请求量明显更高。</p>
+                    <button id="catalogMetadataFetchFull" class="button button-quiet" type="button">
+                      全量重新获取
+                    </button>
+                  </div>
+                </div>
+              </details>
               <p id="catalogMetadataManagerStatus" role="status" aria-live="polite">
                 正在读取个人仓库缓存...
               </p>
               <div class="catalog-metadata-progress" aria-live="polite">
                 <progress id="catalogMetadataProgress" max="1" value="0" hidden></progress>
-                <span id="catalogMetadataProgressLabel">全量获取只写入本机缓存，不会自动提交 GitHub。</span>
+                <span id="catalogMetadataProgressLabel">全量获取只写入本机缓存；点击“更新到仓库”后才会补充个人仓库中不存在的条目。</span>
               </div>
             </div>
             <div class="catalog-public-controls">
@@ -648,14 +655,6 @@
                   <option value="bangumi-score-asc">Bangumi 评分：低到高</option>
                 </select>
               </label>
-              <button
-                id="catalogMetadataRefresh"
-                class="button button-quiet catalog-public-refresh"
-                type="button"
-                title="从 Bangumi Archive 更新本页评分与标签"
-              >
-                更新本页
-              </button>
             </div>
             <section
               id="catalogTagPanel"

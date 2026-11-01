@@ -1270,6 +1270,102 @@ h2 {
   color: var(--danger);
 }
 
+.catalog-metadata-fetch-options {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+}
+
+.catalog-metadata-fetch-options > summary {
+  min-height: 38px;
+  padding: 8px 2px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.catalog-metadata-fetch-options > summary::-webkit-details-marker {
+  display: none;
+}
+
+.catalog-metadata-fetch-options > summary > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.catalog-metadata-fetch-options > summary strong {
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.catalog-metadata-fetch-options > summary small,
+.catalog-metadata-fetch-options > summary > span:last-child {
+  color: var(--ink-soft);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.catalog-metadata-fetch-options > summary > span:last-child::after {
+  margin-left: 7px;
+  content: "+";
+  color: var(--accent-dark);
+  font-family: var(--font-mono);
+  font-weight: 800;
+}
+
+.catalog-metadata-fetch-options[open] > summary > span:last-child::after {
+  content: "−";
+}
+
+.catalog-metadata-fetch-body {
+  padding: 10px 0 1px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.catalog-metadata-fetch-body > div {
+  min-width: 0;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+}
+
+.catalog-metadata-fetch-body strong {
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.catalog-metadata-fetch-body p {
+  grid-column: 1;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.catalog-metadata-fetch-body .button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.catalog-metadata-fetch-options.is-busy > summary {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .catalog-cache-actions .text-button:disabled,
 .catalog-cache-manager.is-busy .catalog-cache-actions button {
   cursor: wait;
@@ -1299,8 +1395,7 @@ h2 {
     minmax(168px, 0.9fr)
     minmax(150px, 0.82fr)
     minmax(126px, 0.7fr)
-    minmax(190px, 1fr)
-    auto;
+    minmax(190px, 1fr);
   align-items: end;
   gap: 10px;
 }
@@ -4750,6 +4845,30 @@ th:nth-child(4) {
 
   .catalog-cache-actions .text-button {
     flex: 1 1 auto;
+  }
+
+  .catalog-metadata-fetch-options > summary {
+    align-items: flex-start;
+  }
+
+  .catalog-metadata-fetch-options > summary > span:last-child {
+    max-width: 42%;
+    text-align: right;
+  }
+
+  .catalog-metadata-fetch-body {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-metadata-fetch-body > div {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-metadata-fetch-body .button {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+    margin-top: 5px;
   }
 
   .catalog-public-controls {

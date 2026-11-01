@@ -116,3 +116,32 @@ test("recommendation covers keep a loading state and no-referrer policy", async 
   assert.match(source, /const coverUrl = safeCoverUrl\(item\.coverUrl\)/u);
   assert.match(source, /hydrateCover\(item, cover\)/u);
 });
+
+test("Bangumi cache controls use page refresh, repository supplement, and collapsed full fetch modes", async () => {
+  const [source, html, styles] = await Promise.all([
+    readAdminFile("catalog.js"),
+    readAdminFile("index.html"),
+    readAdminFile("styles.css"),
+  ]);
+
+  assert.match(html, /id="catalogMetadataRefresh"[^>]*>\s*本页重新获取/u);
+  assert.match(html, /id="catalogMetadataUpdateRepository"/u);
+  assert.match(html, /<details id="catalogMetadataFetchOptions"/u);
+  assert.match(html, /id="catalogMetadataFetchIncremental"/u);
+  assert.match(html, /id="catalogMetadataFetchFull"/u);
+  for (const removedId of [
+    "catalogMetadataReload",
+    "catalogMetadataSavePage",
+    "catalogMetadataSyncAll",
+    "catalogMetadataSaveAll",
+    "catalogMetadataRemovePage",
+    "catalogMetadataClearLocal",
+    "catalogMetadataClearPersonal",
+  ]) {
+    assert.doesNotMatch(html, new RegExp(`id="${removedId}"`, "u"));
+  }
+  assert.match(source, /function updateRepositoryBangumiCache\(/u);
+  assert.match(source, /mode: "supplement"/u);
+  assert.match(source, /resolveAllBangumiMetadata\(items, \{\s*refresh,/u);
+  assert.match(styles, /\.catalog-metadata-fetch-options/u);
+});

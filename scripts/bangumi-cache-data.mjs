@@ -159,6 +159,22 @@ export function mergeBangumiCacheEntries(current, incoming) {
   return sortBangumiCacheEntries([...byId.values()]);
 }
 
+export function supplementBangumiCacheEntries(current, incoming) {
+  const byId = new Map(
+    (current ?? []).map((entry) => {
+      const normalized = normalizeBangumiCacheEntry(entry);
+      return [normalized.subjectId, normalized];
+    }),
+  );
+  for (const rawEntry of incoming ?? []) {
+    const entry = normalizeBangumiCacheEntry(rawEntry);
+    if (!byId.has(entry.subjectId)) {
+      byId.set(entry.subjectId, entry);
+    }
+  }
+  return sortBangumiCacheEntries([...byId.values()]);
+}
+
 export function removeBangumiCacheEntries(current, subjectIds) {
   const removed = new Set(
     (subjectIds ?? []).map((value) => cleanString(value)).filter(Boolean),

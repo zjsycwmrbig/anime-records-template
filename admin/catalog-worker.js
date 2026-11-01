@@ -55,37 +55,45 @@ function openDatabase() {
 }
 
 async function readCache() {
-  const database = await openDatabase();
   try {
-    return await new Promise((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, "readonly");
-      const request = transaction.objectStore(STORE_NAME).get(CACHE_KEY);
-      request.addEventListener("success", () => {
-        const value = request.result;
-        resolve(isValidCatalog(value) ? value : null);
+    const database = await openDatabase();
+    try {
+      return await new Promise((resolve, reject) => {
+        const transaction = database.transaction(STORE_NAME, "readonly");
+        const request = transaction.objectStore(STORE_NAME).get(CACHE_KEY);
+        request.addEventListener("success", () => {
+          const value = request.result;
+          resolve(isValidCatalog(value) ? value : null);
+        });
+        request.addEventListener("error", () =>
+          reject(request.error ?? new Error("读取本地索引失败")),
+        );
       });
-      request.addEventListener("error", () =>
-        reject(request.error ?? new Error("读取本地索引失败")),
-      );
-    });
-  } finally {
-    database.close();
+    } finally {
+      database.close();
+    }
+  } catch {
+    return null;
   }
 }
 
 async function writeCache(catalog) {
-  const database = await openDatabase();
   try {
-    await new Promise((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, "readwrite");
-      transaction.objectStore(STORE_NAME).put(catalog, CACHE_KEY);
-      transaction.addEventListener("complete", resolve);
-      transaction.addEventListener("error", () =>
-        reject(transaction.error ?? new Error("写入本地索引失败")),
-      );
-    });
-  } finally {
-    database.close();
+    const database = await openDatabase();
+    try {
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction(STORE_NAME, "readwrite");
+        transaction.objectStore(STORE_NAME).put(catalog, CACHE_KEY);
+        transaction.addEventListener("complete", resolve);
+        transaction.addEventListener("error", () =>
+          reject(transaction.error ?? new Error("写入本地索引失败")),
+        );
+      });
+    } finally {
+      database.close();
+    }
+  } catch {
+    // The bundled catalog remains usable when persistent storage is blocked.
   }
 }
 
@@ -226,6 +234,9 @@ async function loadCatalog(refresh) {
   }
 }
 
+const isWorkerContext =
+  typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+
 async function refreshStaleCatalog(cached) {
   try {
     const version = await fetchLatestVersion();
@@ -241,19 +252,21 @@ async function refreshStaleCatalog(cached) {
         : await downloadCatalog(version);
     await writeCache(updated);
     catalog = updated;
-    self.postMessage({
-      type: "catalog-updated",
-      payload: {
-        version: updated.source.version,
-        checkedAt: updated.source.checkedAt,
-      },
-    });
+    if (isWorkerContext) {
+      self.postMessage({
+        type: "catalog-updated",
+        payload: {
+          version: updated.source.version,
+          checkedAt: updated.source.checkedAt,
+        },
+      });
+    }
   } catch {
     // The stale local index remains usable while the network is unavailable.
   }
 }
 
-async function replaceCatalog(onProgress = () => {}) {
+export async function replaceCatalogIndex(onProgress = () => {}) {
   onProgress({ phase: "version", message: "正在检查 bangumi-data 版本" });
   const version = await fetchLatestVersion();
   const cached = await readCache();
@@ -265,7 +278,7 @@ async function replaceCatalog(onProgress = () => {}) {
     };
     await writeCache(updated);
     catalog = updated;
-      onProgress({ phase: "done", version, itemCount: updated.itemCount, reused: true });
+    onProgress({ phase: "done", version, itemCount: updated.itemCount, reused: true });
     return { ...updated, reused: true };
   }
   const downloaded = await downloadCatalog(version, onProgress);
@@ -299,7 +312,7 @@ function getCatalog(refresh = false) {
   return catalogPromise;
 }
 
-async function search(options) {
+export async function searchCatalogIndex(options = {}) {
   const catalog = await getCatalog(Boolean(options.refresh));
   return {
     ...searchCatalog(catalog.items, options),
@@ -315,22 +328,44 @@ async function search(options) {
   };
 }
 
-self.addEventListener("message", async (event) => {
+export async function getCatalogItems(ids) {
+  const loaded = await getCatalog(false);
+  const requested = new Set(ids ?? []);
+  return loaded.items.filter((item) => requested.has(item.id));
+}
+
+export async function getBangumiCatalogItems() {
+  const loaded = await getCatalog(false);
+  return loaded.items
+    .filter((item) => item.sites?.bangumi)
+    .map((item) => ({
+      id: item.id,
+      displayTitle: item.displayTitle,
+      title: item.title,
+      year: item.year,
+      sites: { bangumi: item.sites.bangumi },
+      coverUrl: item.coverUrl ?? null,
+    }));
+}
+
+export function resetCatalogIndex() {
+  catalog = null;
+  catalogPromise = null;
+}
+
+async function handleWorkerMessage(event) {
   const { type, requestId, options = {} } = event.data ?? {};
   if (type === "reset") {
-    catalog = null;
-    catalogPromise = null;
+    resetCatalogIndex();
     self.postMessage({ type: "reset", requestId });
     return;
   }
   if (type === "getItems") {
     try {
-      const loaded = await getCatalog(false);
-      const requested = new Set(options.ids ?? []);
       self.postMessage({
         type: "result",
         requestId,
-        payload: loaded.items.filter((item) => requested.has(item.id)),
+        payload: await getCatalogItems(options.ids),
       });
     } catch (error) {
       self.postMessage({
@@ -343,20 +378,10 @@ self.addEventListener("message", async (event) => {
   }
   if (type === "getBangumiItems") {
     try {
-      const loaded = await getCatalog(false);
       self.postMessage({
         type: "result",
         requestId,
-        payload: loaded.items
-          .filter((item) => item.sites?.bangumi)
-          .map((item) => ({
-            id: item.id,
-            displayTitle: item.displayTitle,
-            title: item.title,
-            year: item.year,
-            sites: { bangumi: item.sites.bangumi },
-            coverUrl: item.coverUrl ?? null,
-          })),
+        payload: await getBangumiCatalogItems(),
       });
     } catch (error) {
       self.postMessage({ type: "error", requestId, error: error.message || "索引读取失败" });
@@ -365,18 +390,18 @@ self.addEventListener("message", async (event) => {
   }
   if (type === "replace") {
     try {
-      const payload = await replaceCatalog((progress) =>
+      const payload = await replaceCatalogIndex((progress) =>
         self.postMessage({ type: "progress", requestId, payload: progress }),
       );
       self.postMessage({
         type: "result",
         requestId,
-      payload: {
-        version: payload.source.version,
-        checkedAt: payload.source.checkedAt,
-        itemCount: payload.itemCount,
-        reused: Boolean(payload.reused),
-        license: payload.source.license,
+        payload: {
+          version: payload.source.version,
+          checkedAt: payload.source.checkedAt,
+          itemCount: payload.itemCount,
+          reused: Boolean(payload.reused),
+          license: payload.source.license,
           sourceUrl: payload.source.sourceUrl,
         },
       });
@@ -389,7 +414,7 @@ self.addEventListener("message", async (event) => {
     return;
   }
   try {
-    const payload = await search(options);
+    const payload = await searchCatalogIndex(options);
     self.postMessage({ type: "result", requestId, payload });
   } catch (error) {
     self.postMessage({
@@ -398,4 +423,8 @@ self.addEventListener("message", async (event) => {
       error: error.message || "索引读取失败",
     });
   }
-});
+}
+
+if (isWorkerContext) {
+  self.addEventListener("message", handleWorkerMessage);
+}

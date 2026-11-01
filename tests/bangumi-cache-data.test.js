@@ -7,6 +7,7 @@ import {
   parseBangumiCacheJsonl,
   removeBangumiCacheEntries,
   serializeBangumiCache,
+  supplementBangumiCacheEntries,
 } from "../scripts/bangumi-cache-data.mjs";
 
 test("normalizes a personal Bangumi cache entry", () => {
@@ -98,6 +99,38 @@ test("merges newer cache entries and preserves newer personal values", () => {
     merged.map((entry) => [entry.subjectId, entry.score]),
     [
       ["1", 7.2],
+      ["2", 8.8],
+      ["3", 9.1],
+    ],
+  );
+});
+
+test("supplements only missing subjects without replacing existing cache", () => {
+  const supplemented = supplementBangumiCacheEntries(
+    [
+      {
+        subjectId: "2",
+        score: 8.8,
+        fetchedAt: "2026-10-27T10:00:00Z",
+      },
+    ],
+    [
+      {
+        subjectId: "2",
+        score: 9.9,
+        fetchedAt: "2026-10-27T12:00:00Z",
+      },
+      {
+        subjectId: "3",
+        score: 9.1,
+        fetchedAt: "2026-10-27T11:00:00Z",
+      },
+    ],
+  );
+
+  assert.deepEqual(
+    supplemented.map((entry) => [entry.subjectId, entry.score]),
+    [
       ["2", 8.8],
       ["3", 9.1],
     ],

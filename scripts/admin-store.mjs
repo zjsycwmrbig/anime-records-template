@@ -32,6 +32,7 @@ import {
   parseBangumiCacheJsonl,
   removeBangumiCacheEntries,
   serializeBangumiCache,
+  supplementBangumiCacheEntries,
 } from "./bangumi-cache-data.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -194,6 +195,11 @@ export class LibraryAdminStore {
         throw new Error("合并 Bangumi 缓存时缺少 entries");
       }
       entries = mergeBangumiCacheEntries(current.entries, input.entries);
+    } else if (mode === "supplement") {
+      if (!Array.isArray(input.entries)) {
+        throw new Error("补充 Bangumi 缓存时缺少 entries");
+      }
+      entries = supplementBangumiCacheEntries(current.entries, input.entries);
     } else {
       throw new Error(`不支持的 Bangumi 缓存操作：${mode}`);
     }

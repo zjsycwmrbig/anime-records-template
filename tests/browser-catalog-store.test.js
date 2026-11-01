@@ -86,3 +86,45 @@ test("passes owned identities to the catalog worker before pagination", async ()
   ]);
   assert.equal(result.items[0].ownedRecordId, "bgm-100");
 });
+
+test("falls back to the main-thread catalog when a worker cannot start", async () => {
+  const fallbackOptions = [];
+  const store = new BrowserCatalogStore({
+    createWorker() {
+      throw new Error("Worker disabled");
+    },
+    fallbackEngine: {
+      async search(options) {
+        fallbackOptions.push(options);
+        return {
+          total: 1,
+          offset: 0,
+          limit: 30,
+          items: [
+            {
+              id: "bangumi:200",
+              title: "フォールバック",
+              displayTitle: "回退索引",
+              names: ["回退索引", "フォールバック"],
+              type: "tv",
+              begin: "2025-01-01T00:00:00.000Z",
+              year: 2025,
+              sites: { bangumi: "200" },
+              season: { key: "bangumi:200", number: null, label: null, year: 2025 },
+              coverUrl: null,
+            },
+          ],
+          facets: { years: [], sources: [] },
+          meta: { version: "test" },
+        };
+      },
+    },
+  });
+
+  const result = await store.search({ query: "回退", limit: 30 });
+
+  assert.equal(fallbackOptions.length, 1);
+  assert.deepEqual(fallbackOptions[0].ownedKeys, []);
+  assert.equal(result.items[0].displayTitle, "回退索引");
+  assert.equal(store.workerUnavailable, true);
+});

@@ -3,6 +3,22 @@ import {
   ownedRecordIdForCatalogItem,
   ownedRecordLookup,
 } from "../scripts/catalog-data.mjs";
+import {
+  getBangumiCatalogItems,
+  getCatalogItems,
+  replaceCatalogIndex,
+  searchCatalogIndex,
+} from "./catalog-worker.js";
+
+function workerFailure(message, cause = null) {
+  const error = new Error(message || "索引 Worker 运行失败");
+  error.name = "CatalogWorkerError";
+  error.isWorkerFailure = true;
+  if (cause) {
+    error.cause = cause;
+  }
+  return error;
+}
 
 export class BrowserCatalogStore {
   constructor(options = {}) {
@@ -12,16 +28,31 @@ export class BrowserCatalogStore {
         new Worker(new URL("./catalog-worker.js", import.meta.url), {
           type: "module",
         }));
+    this.fallbackEngine = options.fallbackEngine ?? {
+      getItems: getCatalogItems,
+      getBangumiItems: getBangumiCatalogItems,
+      replace: replaceCatalogIndex,
+      search: searchCatalogIndex,
+    };
     this.worker = null;
+    this.workerUnavailable = false;
     this.sequence = 0;
     this.pending = new Map();
   }
 
   ensureWorker() {
+    if (this.workerUnavailable) {
+      throw workerFailure("索引 Worker 不可用");
+    }
     if (this.worker) {
       return this.worker;
     }
-    this.worker = this.createWorker();
+    try {
+      this.worker = this.createWorker();
+    } catch (error) {
+      this.workerUnavailable = true;
+      throw workerFailure(error.message, error);
+    }
     this.worker.addEventListener("message", (event) => {
       if (event.data.type === "catalog-updated") {
         if (typeof window !== "undefined") {
@@ -52,9 +83,15 @@ export class BrowserCatalogStore {
       }
     });
     this.worker.addEventListener("error", (event) => {
+      const error = workerFailure(
+        [event.message, event.filename ? `${event.filename}:${event.lineno ?? 0}` : ""]
+          .filter(Boolean)
+          .join(" · "),
+      );
+      this.workerUnavailable = true;
       for (const pending of this.pending.values()) {
         clearTimeout(pending.timer);
-        pending.reject(new Error(event.message || "索引 Worker 运行失败"));
+        pending.reject(error);
       }
       this.pending.clear();
       this.worker?.terminate();
@@ -63,8 +100,13 @@ export class BrowserCatalogStore {
     return this.worker;
   }
 
-  request(type, options = {}, timeoutMs = 120000, onProgress = null) {
-    const worker = this.ensureWorker();
+  requestWorker(type, options = {}, timeoutMs = 120000, onProgress = null) {
+    let worker;
+    try {
+      worker = this.ensureWorker();
+    } catch (error) {
+      return Promise.reject(error);
+    }
     const requestId = ++this.sequence;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -74,6 +116,33 @@ export class BrowserCatalogStore {
       this.pending.set(requestId, { resolve, reject, timer, onProgress });
       worker.postMessage({ type, requestId, options });
     });
+  }
+
+  async requestFallback(type, options = {}, onProgress = null) {
+    if (type === "search") {
+      return this.fallbackEngine.search(options);
+    }
+    if (type === "getItems") {
+      return this.fallbackEngine.getItems(options.ids ?? []);
+    }
+    if (type === "getBangumiItems") {
+      return this.fallbackEngine.getBangumiItems();
+    }
+    if (type === "replace") {
+      return this.fallbackEngine.replace(onProgress ?? options.onProgress);
+    }
+    throw new Error(`不支持的索引请求：${type}`);
+  }
+
+  async request(type, options = {}, timeoutMs = 120000, onProgress = null) {
+    try {
+      return await this.requestWorker(type, options, timeoutMs, onProgress);
+    } catch (error) {
+      if (!error?.isWorkerFailure) {
+        throw error;
+      }
+      return this.requestFallback(type, options, onProgress);
+    }
   }
 
   async search(options = {}, libraryIndex = []) {

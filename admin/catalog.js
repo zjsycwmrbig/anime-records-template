@@ -14,15 +14,12 @@ import { resolveCatalogCovers } from "./cover-cache.js";
 import {
   applyBangumiMetadata,
   collectBangumiTagHeatFromEntries,
-  clearBangumiMetadata,
   hasUsableBangumiMetadata,
-  importBangumiMetadata,
   isCachedBangumiMetadata,
   markBangumiMetadataPersonal,
   readBangumiMetadata,
   readAllBangumiMetadata,
   readKnownBangumiTags,
-  removeBangumiMetadata,
   replaceBangumiMetadataBySource,
   resolveBangumiMetadata,
   resolveAllBangumiMetadata,
@@ -89,6 +86,7 @@ const state = {
   metadataPersonalSize: 0,
   metadataPersonalUpdatedAt: null,
   metadataPersonalFile: "data/bangumi-cache.jsonl",
+  metadataPersonalIds: new Set(),
   metadataEntries: new Map(),
   metadataIndexedCount: 0,
   metadataBrowserCount: 0,
@@ -189,28 +187,22 @@ const elements = {
   catalogMetadataPersonalFile: document.querySelector(
     "#catalogMetadataPersonalFile",
   ),
-  catalogMetadataReload: document.querySelector("#catalogMetadataReload"),
-  catalogMetadataSavePage: document.querySelector(
-    "#catalogMetadataSavePage",
+  catalogMetadataUpdateRepository: document.querySelector(
+    "#catalogMetadataUpdateRepository",
   ),
-  catalogMetadataSyncAll: document.querySelector(
-    "#catalogMetadataSyncAll",
+  catalogMetadataFetchOptions: document.querySelector(
+    "#catalogMetadataFetchOptions",
   ),
-  catalogMetadataFetchAll: document.querySelector("#catalogMetadataFetchAll"),
+  catalogMetadataFetchIncremental: document.querySelector(
+    "#catalogMetadataFetchIncremental",
+  ),
+  catalogMetadataFetchFull: document.querySelector(
+    "#catalogMetadataFetchFull",
+  ),
   catalogMetadataCancelAll: document.querySelector("#catalogMetadataCancelAll"),
-  catalogMetadataSaveAll: document.querySelector("#catalogMetadataSaveAll"),
   catalogMetadataProgress: document.querySelector("#catalogMetadataProgress"),
   catalogMetadataProgressLabel: document.querySelector(
     "#catalogMetadataProgressLabel",
-  ),
-  catalogMetadataRemovePage: document.querySelector(
-    "#catalogMetadataRemovePage",
-  ),
-  catalogMetadataClearLocal: document.querySelector(
-    "#catalogMetadataClearLocal",
-  ),
-  catalogMetadataClearPersonal: document.querySelector(
-    "#catalogMetadataClearPersonal",
   ),
   catalogCacheManager: document.querySelector(
     ".catalog-cache-manager",
@@ -1357,45 +1349,6 @@ function formatByteSize(value) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function bangumiEntryIsStorable(entry) {
-  return Boolean(
-    Number.isFinite(entry?.score) ||
-      entry?.tags?.length ||
-      entry?.rank ||
-      entry?.summary ||
-      entry?.coverUrl,
-  );
-}
-
-function bangumiEntriesForItems(items = state.pageItems) {
-  const entries = new Map();
-  for (const item of items) {
-    if (!item.bangumiMetadata) {
-      continue;
-    }
-    try {
-      const entry = toBangumiCacheEntry(item.bangumiMetadata);
-      if (bangumiEntryIsStorable(entry)) {
-        entries.set(entry.subjectId, entry);
-      }
-    } catch {
-      // Ignore malformed local records while collecting a cache snapshot.
-    }
-  }
-  return [...entries.values()];
-}
-
-function currentPagePersonalBangumiIds(items = state.pageItems) {
-  return [
-    ...new Set(
-      items
-        .filter((item) => item.bangumiMetadataSource === "personal")
-        .map((item) => String(item.sites?.bangumi ?? "").trim())
-        .filter(Boolean),
-    ),
-  ];
-}
-
 function setCacheManagerStatus(message, tone = "") {
   if (!elements.catalogMetadataManagerStatus) {
     return;
@@ -1414,14 +1367,7 @@ function setCacheManagerStatus(message, tone = "") {
 function renderCacheManager() {
   const writable = getRuntime().writable;
   const busy = state.metadataCacheBusy;
-  const pageEntries = bangumiEntriesForItems();
-  const personalPageIds = currentPagePersonalBangumiIds();
-  const baseDisabled =
-    busy ||
-    state.loading ||
-    state.metadataLoading;
-  const cacheActionsDisabled =
-    baseDisabled || state.metadataPersonalLoading;
+  const baseDisabled = busy || state.loading || state.metadataLoading;
   if (elements.catalogMetadataPersonalCount) {
     elements.catalogMetadataPersonalCount.textContent =
       `${state.metadataPersonalCount.toLocaleString("zh-CN")} 条`;
@@ -1442,48 +1388,41 @@ function renderCacheManager() {
       state.metadataPersonalFile;
     elements.catalogMetadataPersonalFile.title = state.metadataPersonalFile;
   }
-  if (elements.catalogMetadataReload) {
-    elements.catalogMetadataReload.disabled = baseDisabled;
-    elements.catalogMetadataReload.textContent =
-      state.metadataCacheAction === "reload-personal"
-        ? "正在装填"
-        : "从仓库装填";
-    elements.catalogMetadataReload.classList.toggle(
+  if (elements.catalogMetadataUpdateRepository) {
+    elements.catalogMetadataUpdateRepository.disabled =
+      !writable || baseDisabled || state.metadataLocalCount === 0;
+    elements.catalogMetadataUpdateRepository.textContent =
+      state.metadataCacheAction === "update-repository"
+        ? "正在补充仓库"
+        : `更新到仓库 (${state.metadataLocalCount})`;
+    elements.catalogMetadataUpdateRepository.classList.toggle(
       "is-loading",
-      state.metadataCacheAction === "reload-personal",
+      state.metadataCacheAction === "update-repository",
     );
   }
-  if (elements.catalogMetadataSavePage) {
-    elements.catalogMetadataSavePage.disabled =
-      cacheActionsDisabled || !writable || pageEntries.length === 0;
-    elements.catalogMetadataSavePage.textContent =
-      state.metadataCacheAction === "save-page"
-        ? "正在保存"
-        : `保存本页 (${pageEntries.length})`;
-    elements.catalogMetadataSavePage.classList.toggle(
+  for (const button of [
+    elements.catalogMetadataFetchIncremental,
+    elements.catalogMetadataFetchFull,
+  ]) {
+    if (button) {
+      button.disabled =
+        busy || state.metadataAllLoading || state.loading || !state.catalogLoaded;
+    }
+  }
+  if (elements.catalogMetadataFetchIncremental) {
+    elements.catalogMetadataFetchIncremental.textContent = state.metadataAllLoading
+      ? "正在获取"
+      : "开始增量获取";
+    elements.catalogMetadataFetchIncremental.classList.toggle(
       "is-loading",
-      state.metadataCacheAction === "save-page",
+      state.metadataAllLoading,
     );
   }
-  if (elements.catalogMetadataSyncAll) {
-    elements.catalogMetadataSyncAll.disabled =
-      cacheActionsDisabled || !writable || state.metadataLocalCount === 0;
-    elements.catalogMetadataSyncAll.textContent =
-      state.metadataCacheAction === "sync-all"
-        ? "正在合并"
-        : `合并本机 (${state.metadataLocalCount})`;
-    elements.catalogMetadataSyncAll.classList.toggle(
-      "is-loading",
-      state.metadataCacheAction === "sync-all",
-    );
-  }
-  if (elements.catalogMetadataFetchAll) {
-    elements.catalogMetadataFetchAll.disabled =
-      busy || state.metadataAllLoading || state.loading || !state.catalogLoaded;
-    elements.catalogMetadataFetchAll.textContent = state.metadataAllLoading
-      ? "全量获取中"
-      : "获取全量公共数据";
-    elements.catalogMetadataFetchAll.classList.toggle(
+  if (elements.catalogMetadataFetchFull) {
+    elements.catalogMetadataFetchFull.textContent = state.metadataAllLoading
+      ? "正在重新获取"
+      : "全量重新获取";
+    elements.catalogMetadataFetchFull.classList.toggle(
       "is-loading",
       state.metadataAllLoading,
     );
@@ -1491,13 +1430,6 @@ function renderCacheManager() {
   if (elements.catalogMetadataCancelAll) {
     elements.catalogMetadataCancelAll.hidden = !state.metadataAllLoading;
     elements.catalogMetadataCancelAll.disabled = !state.metadataAllLoading;
-  }
-  if (elements.catalogMetadataSaveAll) {
-    elements.catalogMetadataSaveAll.disabled =
-      cacheActionsDisabled || !writable || state.metadataLocalCount === 0;
-    elements.catalogMetadataSaveAll.textContent = state.metadataCacheAction === "sync-all"
-      ? "正在保存全量缓存"
-      : `保存本机缓存 (${state.metadataLocalCount})`;
   }
   if (elements.catalogMetadataProgress) {
     const progress = state.metadataAllProgress;
@@ -1514,37 +1446,26 @@ function renderCacheManager() {
       ? `${progress.phaseLabel ?? "准备中"} · ${progress.completed ?? 0}/${progress.total ?? 0}` +
         (progress.speed ? ` · ${progress.speed.toFixed(1)} 条/秒` : "") +
         (progress.failed ? ` · 失败 ${progress.failed}` : "")
-      : "全量获取只写入本机缓存，不会自动提交 GitHub。";
+      : "全量获取只写入本机缓存；点击“更新到仓库”后才会补充个人仓库中不存在的条目。";
   }
-  if (elements.catalogMetadataRemovePage) {
-    elements.catalogMetadataRemovePage.disabled =
-      cacheActionsDisabled || !writable || personalPageIds.length === 0;
-    elements.catalogMetadataRemovePage.textContent =
-      state.metadataCacheAction === "remove-page"
-        ? "正在移除"
-        : `移除本页 (${personalPageIds.length})`;
-    elements.catalogMetadataRemovePage.classList.toggle(
-      "is-loading",
-      state.metadataCacheAction === "remove-page",
-    );
-  }
-  if (elements.catalogMetadataClearLocal) {
-    elements.catalogMetadataClearLocal.disabled =
-      busy || (state.metadataLocalCount === 0 && state.metadataBrowserCount === 0);
-  }
-  if (elements.catalogMetadataClearPersonal) {
-    elements.catalogMetadataClearPersonal.disabled =
-      busy || !writable || state.metadataPersonalCount === 0;
-  }
+  elements.catalogMetadataFetchOptions?.classList.toggle(
+    "is-busy",
+    state.metadataAllLoading,
+  );
+  elements.catalogMetadataFetchOptions?.setAttribute(
+    "aria-busy",
+    String(state.metadataAllLoading),
+  );
   elements.catalogCacheManager?.classList.toggle("is-busy", busy);
   elements.catalogCacheManager?.setAttribute("aria-busy", String(busy));
 }
 
-async function fetchAllBangumiMetadata() {
+async function fetchAllBangumiMetadata(options = {}) {
   if (state.metadataAllLoading) return;
+  const refresh = Boolean(options.refresh);
   state.metadataAllLoading = true;
   state.metadataAllProgress = {
-    phaseLabel: "正在读取全量索引",
+    phaseLabel: refresh ? "正在准备全量重新获取" : "正在准备增量获取",
     completed: 0,
     total: 0,
     failed: 0,
@@ -1556,25 +1477,30 @@ async function fetchAllBangumiMetadata() {
     const items = payload.items ?? [];
     state.metadataIndexedCount = items.length;
     state.metadataAllProgress = {
-      phaseLabel: "正在读取本机缓存",
+      phaseLabel: refresh ? "正在准备覆盖本机公共数据" : "正在读取本机缓存",
       completed: 0,
       total: items.length,
       failed: 0,
     };
     renderCacheManager();
     const result = await resolveAllBangumiMetadata(items, {
+      refresh,
       signal: state.metadataAllAbortController.signal,
       onProgress(progress) {
         state.metadataAllProgress = {
           ...progress,
           phaseLabel:
             progress.phase === "snapshot"
-              ? "正在装填公共快照"
+              ? refresh
+                ? "正在重新装填公共快照"
+                : "正在装填缺失的公共快照"
               : progress.phase === "api"
-                ? "正在在线补充"
+                ? "正在在线补充缺失条目"
                 : progress.phase === "cancelled"
                   ? "已请求停止"
-                  : "正在检查本机缓存",
+                  : refresh
+                    ? "正在准备全量缓存"
+                    : "正在检查本机缓存",
         };
         renderCacheManager();
       },
@@ -1587,12 +1513,14 @@ async function fetchAllBangumiMetadata() {
       await applyCachedBangumiMetadata(state.pageItems);
       applyCatalogView({ render: true });
     }
-    const message = `全量公共数据完成：缓存 ${result.fetched} 条，失败 ${result.failed} 条；结果已保存在本机。`;
+    const message = `${refresh ? "全量重新获取" : "增量获取"}完成：` +
+      `更新 ${result.fetched} 条，失败 ${result.failed} 条；结果已保存在本机。`;
     setCacheManagerStatus(message, result.failed ? "error" : "success");
     showToast(message, { error: Boolean(result.failed), duration: 7000 });
   } catch (error) {
-    setCacheManagerStatus(`全量公共数据获取失败：${error.message}`, "error");
-    showToast(error.message, { error: true });
+    const label = refresh ? "全量重新获取" : "增量获取";
+    setCacheManagerStatus(`${label}失败：${error.message}`, "error");
+    showToast(`${label}失败：${error.message}`, { error: true });
   } finally {
     state.metadataAllLoading = false;
     state.metadataAllAbortController = null;
@@ -1602,7 +1530,7 @@ async function fetchAllBangumiMetadata() {
 
 function cancelAllBangumiMetadata() {
   state.metadataAllAbortController?.abort();
-  setCacheManagerStatus("正在停止全量公共数据获取；已完成的本机缓存会保留。", "success");
+  setCacheManagerStatus("正在停止 Bangumi 公共数据获取；已完成的本机缓存会保留。", "success");
 }
 
 async function refreshLocalBangumiCacheFacts() {
@@ -1610,7 +1538,18 @@ async function refreshLocalBangumiCacheFacts() {
   const browserEntries = entries.filter((entry) =>
     ["browser", "cache"].includes(entry.storageSource ?? "browser"),
   );
-  const pendingEntries = entries.filter((entry) => entry.pendingSync);
+  state.metadataPersonalIds = new Set(
+    entries
+      .filter((entry) => entry.storageSource === "personal")
+      .map((entry) => String(entry.subjectId ?? ""))
+      .filter(Boolean),
+  );
+  const pendingEntries = entries.filter(
+    (entry) =>
+      entry.pendingSync &&
+      entry.storageSource !== "personal" &&
+      !state.metadataPersonalIds.has(String(entry.subjectId)),
+  );
   state.metadataEntries = new Map(
     entries.map((entry) => [String(entry.subjectId), entry]),
   );
@@ -1637,25 +1576,19 @@ function applyPersonalCacheEntries(entries) {
   );
 }
 
-function clearItemsFromBangumiCache(subjectIds) {
-  const removed = new Set((subjectIds ?? []).map(String));
-  for (const item of state.pageItems) {
-    const subjectId = String(item.sites?.bangumi ?? "");
-    if (!removed.has(subjectId)) {
-      continue;
-    }
-    item.bangumiMetadata = null;
-    item.bangumiMetadataResolved = true;
-    item.bangumiMetadataSource = null;
-  }
-}
-
 function applyPersonalCacheResult(result) {
   state.metadataPersonalCount = Number(result.count) || 0;
   state.metadataPersonalSize = Number(result.size) || 0;
   state.metadataPersonalUpdatedAt = result.updatedAt || null;
   state.metadataPersonalFile =
     result.file || state.metadataPersonalFile || "data/bangumi-cache.jsonl";
+  if (Array.isArray(result.entries)) {
+    state.metadataPersonalIds = new Set(
+      result.entries
+        .map((entry) => String(entry.subjectId ?? ""))
+        .filter(Boolean),
+    );
+  }
   applyPersonalCacheEntries(result.entries ?? []);
   renderCacheManager();
 }
@@ -1731,19 +1664,47 @@ async function loadPersonalBangumiCache(options = {}) {
   }
 }
 
-async function reloadPersonalBangumiCache() {
-  await runBangumiCacheAction("reload-personal", async () => {
-    setCacheManagerStatus("正在从个人仓库重新装填 Bangumi 缓存...");
-    state.metadataPersonalLoaded = false;
-    await loadPersonalBangumiCache({
-      force: true,
-      throwOnError: true,
+async function updateRepositoryBangumiCache() {
+  const { pendingEntries } = await refreshLocalBangumiCacheFacts();
+  const entries = pendingEntries
+    .filter(
+      (entry) =>
+        !state.metadataPersonalIds.has(String(entry.subjectId ?? "")),
+    )
+    .map((entry) => {
+      try {
+        return toBangumiCacheEntry(entry);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+  if (!entries.length) {
+    const message = "个人仓库已包含当前可同步的全部 Bangumi 公共缓存";
+    setCacheManagerStatus(message, "success");
+    showToast(message);
+    return;
+  }
+  await runBangumiCacheAction("update-repository", async () => {
+    setCacheManagerStatus(
+      `正在向个人仓库补充 ${entries.length.toLocaleString("zh-CN")} 条不存在的 Bangumi 缓存...`,
+    );
+    const result = await api("/api/bangumi-cache", {
+      method: "PUT",
+      body: JSON.stringify({
+        mode: "supplement",
+        entries,
+        message: bangumiCacheCommitMessage("supplement missing", entries),
+      }),
     });
+    await markBangumiMetadataPersonal(result.entries ?? []);
+    applyPersonalCacheResult(result);
     await refreshLocalBangumiCacheFacts();
-    await loadCatalog();
-    const message =
-      `已从个人仓库装填 ${state.metadataPersonalCount.toLocaleString("zh-CN")} 条 Bangumi 缓存，` +
-      `本机临时缓存 ${state.metadataLocalCount.toLocaleString("zh-CN")} 条待同步。`;
+    applyCatalogView({ render: true });
+    const message = result.changed
+      ? `已向个人仓库补充 ${entries.length.toLocaleString("zh-CN")} 条缺失缓存` +
+        (result.commitShort ? `，提交 ${result.commitShort}` : "")
+      : "个人仓库已包含这些 Bangumi 缓存";
     setCacheManagerStatus(message, "success");
     showToast(message, { duration: 5000 });
   });
@@ -1782,177 +1743,6 @@ async function runBangumiCacheAction(action, task) {
     state.metadataCacheAction = "";
     renderCacheManager();
   }
-}
-
-async function savePageBangumiCache() {
-  const entries = bangumiEntriesForItems();
-  if (!entries.length) {
-    showToast("本页没有可保存的 Bangumi 评分或标签", { error: true });
-    return;
-  }
-  await runBangumiCacheAction("save-page", async () => {
-    setCacheManagerStatus(
-      `正在把本页 ${entries.length.toLocaleString("zh-CN")} 条 Bangumi 信息写入个人仓库...`,
-    );
-    const result = await api("/api/bangumi-cache", {
-      method: "PUT",
-      body: JSON.stringify({
-        mode: "merge",
-        entries,
-        message: bangumiCacheCommitMessage("save", entries),
-      }),
-    });
-    await markBangumiMetadataPersonal(result.entries ?? []);
-    applyPersonalCacheResult(result);
-    await refreshLocalBangumiCacheFacts();
-    applyCatalogView({ render: true });
-    const message = result.changed
-      ? `已保存到个人仓库 ${result.file}` +
-        (result.commitShort ? `，提交 ${result.commitShort}` : "")
-      : "本页 Bangumi 信息已经是最新，无需重复写入";
-    setCacheManagerStatus(message, "success");
-    showToast(message, { duration: 5000 });
-  });
-}
-
-async function mergeLocalBangumiCache() {
-  const { pendingEntries } = await refreshLocalBangumiCacheFacts();
-  const entries = pendingEntries
-    .map((entry) => {
-      try {
-        return toBangumiCacheEntry(entry);
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
-  if (!entries.length) {
-    setCacheManagerStatus("本机没有待保存的 Bangumi 信息", "success");
-    showToast("本机没有待保存的 Bangumi 信息");
-    return;
-  }
-  await runBangumiCacheAction("sync-all", async () => {
-    setCacheManagerStatus(
-      `正在合并本机 ${entries.length.toLocaleString("zh-CN")} 条 Bangumi 信息...`,
-    );
-    const result = await api("/api/bangumi-cache", {
-      method: "PUT",
-      body: JSON.stringify({
-        mode: "merge",
-        entries,
-        message: bangumiCacheCommitMessage("merge local", entries),
-      }),
-    });
-    await markBangumiMetadataPersonal(result.entries ?? []);
-    applyPersonalCacheResult(result);
-    await refreshLocalBangumiCacheFacts();
-    applyCatalogView({ render: true });
-    const message = result.changed
-      ? `已向个人仓库合并 ${entries.length.toLocaleString("zh-CN")} 条缓存` +
-        (result.commitShort ? `，提交 ${result.commitShort}` : "")
-      : "个人仓库中已包含这些 Bangumi 信息";
-    setCacheManagerStatus(message, "success");
-    showToast(message, { duration: 5000 });
-  });
-}
-
-async function removePageBangumiCache() {
-  const subjectIds = currentPagePersonalBangumiIds();
-  if (!subjectIds.length) {
-    return;
-  }
-  if (
-    !window.confirm(
-      `从个人仓库缓存中移除本页 ${subjectIds.length} 个 Bangumi 条目？` +
-        "这不会删除你的番剧记录或评价。",
-    )
-  ) {
-    return;
-  }
-  await runBangumiCacheAction("remove-page", async () => {
-    setCacheManagerStatus(
-      `正在从个人仓库移除 ${subjectIds.length} 条 Bangumi 缓存...`,
-    );
-    const result = await api("/api/bangumi-cache", {
-      method: "DELETE",
-      body: JSON.stringify({ subjectIds }),
-    });
-    await removeBangumiMetadata(subjectIds);
-    clearItemsFromBangumiCache(subjectIds);
-    applyPersonalCacheResult(result);
-    await refreshLocalBangumiCacheFacts();
-    applyCatalogView({ render: true });
-    const message = result.changed
-      ? `已移除本页 Bangumi 缓存` +
-        (result.commitShort ? `，提交 ${result.commitShort}` : "")
-      : "个人仓库中原本没有这些 Bangumi 缓存";
-    setCacheManagerStatus(message, "success");
-    showToast(message);
-  });
-}
-
-async function clearLocalBangumiCache() {
-  if (
-    !window.confirm(
-      "清空本机临时 Bangumi 信息？尚未保存到个人仓库的读取结果也会一起清除。",
-    )
-  ) {
-    return;
-  }
-  await runBangumiCacheAction("clear-local", async () => {
-    setCacheManagerStatus("正在清理本机 Bangumi 缓存...");
-    await clearBangumiMetadata();
-    for (const item of state.pageItems) {
-      item.bangumiMetadata = null;
-      item.bangumiMetadataSource = null;
-      item.bangumiMetadataResolved = false;
-    }
-    state.metadataPersonalLoaded = false;
-    await loadPersonalBangumiCache({ force: true });
-    await refreshLocalBangumiCacheFacts();
-    applyCatalogView({ render: true });
-    setCacheManagerStatus(
-      "已清空本机临时缓存，并重新载入个人仓库缓存。",
-      "success",
-    );
-    showToast("已清空本机临时缓存");
-  });
-}
-
-async function clearPersonalBangumiCache() {
-  if (
-    !window.confirm(
-      "清空个人仓库中的全部 Bangumi 评分与标签缓存？" +
-        "这不会删除番剧记录与评价，但会创建一次仓库提交。",
-    )
-  ) {
-    return;
-  }
-  await runBangumiCacheAction("clear-personal", async () => {
-    setCacheManagerStatus("正在清空个人仓库 Bangumi 缓存...");
-    const result = await api("/api/bangumi-cache", {
-      method: "DELETE",
-      body: JSON.stringify({ all: true }),
-    });
-    await clearBangumiMetadata();
-    for (const item of state.pageItems) {
-      item.bangumiMetadata = null;
-      item.bangumiMetadataSource = null;
-      item.bangumiMetadataResolved = false;
-    }
-    state.metadataPersonalLoaded = true;
-    applyPersonalCacheResult(result);
-    await refreshLocalBangumiCacheFacts();
-    applyCatalogView({ render: true });
-    setCacheManagerStatus(
-      result.changed
-        ? `个人仓库 Bangumi 缓存已清空` +
-            (result.commitShort ? `，提交 ${result.commitShort}` : "")
-        : "个人仓库 Bangumi 缓存原本就是空的",
-      "success",
-    );
-    showToast("个人仓库 Bangumi 缓存已清空");
-  });
 }
 
 function createBangumiMetadata(item, maximumTags = 2) {
@@ -2201,8 +1991,8 @@ function renderCatalogMetadataStatus(message = "") {
     state.metadataLoading,
   );
   elements.catalogMetadataRefresh.textContent = state.metadataLoading
-    ? "更新中"
-    : "更新本页";
+    ? "重新获取中"
+    : "本页重新获取";
   renderCacheManager();
 }
 
@@ -3880,41 +3670,25 @@ elements.catalogMetadataRefresh.addEventListener("click", () => {
   hydrateVisibleMetadata(requestSequence, { refresh: true });
 });
 
-elements.catalogMetadataReload?.addEventListener(
+elements.catalogMetadataUpdateRepository?.addEventListener(
   "click",
-  reloadPersonalBangumiCache,
+  updateRepositoryBangumiCache,
 );
-elements.catalogMetadataSavePage?.addEventListener(
-  "click",
-  savePageBangumiCache,
-);
-elements.catalogMetadataSyncAll?.addEventListener(
-  "click",
-  mergeLocalBangumiCache,
-);
-elements.catalogMetadataFetchAll?.addEventListener(
-  "click",
-  fetchAllBangumiMetadata,
-);
+elements.catalogMetadataFetchIncremental?.addEventListener("click", () => {
+  fetchAllBangumiMetadata({ refresh: false });
+});
+elements.catalogMetadataFetchFull?.addEventListener("click", () => {
+  if (
+    window.confirm(
+      "重新获取全部 Bangumi 公共评分与标签？已缓存的数据会被本次结果覆盖，但不会删除个人番剧记录。",
+    )
+  ) {
+    fetchAllBangumiMetadata({ refresh: true });
+  }
+});
 elements.catalogMetadataCancelAll?.addEventListener(
   "click",
   cancelAllBangumiMetadata,
-);
-elements.catalogMetadataSaveAll?.addEventListener(
-  "click",
-  mergeLocalBangumiCache,
-);
-elements.catalogMetadataRemovePage?.addEventListener(
-  "click",
-  removePageBangumiCache,
-);
-elements.catalogMetadataClearLocal?.addEventListener(
-  "click",
-  clearLocalBangumiCache,
-);
-elements.catalogMetadataClearPersonal?.addEventListener(
-  "click",
-  clearPersonalBangumiCache,
 );
 
 elements.catalogYearFilter?.addEventListener("click", () =>
@@ -4050,6 +3824,7 @@ window.addEventListener("anime-runtime:changed", () => {
   state.metadataPersonalCount = 0;
   state.metadataPersonalSize = 0;
   state.metadataPersonalUpdatedAt = null;
+  state.metadataPersonalIds.clear();
   state.metadataPersonalLoaded = false;
   state.metadataIndexedCount = 0;
   state.metadataPersonalLoading = false;

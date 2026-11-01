@@ -624,7 +624,7 @@ async function resolveMetadataCandidates(candidates, options = {}) {
           updates.set(subjectId, {
             ...metadata,
             storageSource,
-            pendingSync: true,
+            pendingSync: storageSource !== "personal",
           });
           sourceById.set(subjectId, storageSource);
         }
@@ -656,7 +656,7 @@ async function resolveMetadataCandidates(candidates, options = {}) {
             {
               ...normalizeBangumiMetadata(payload, subjectId),
               storageSource,
-              pendingSync: true,
+              pendingSync: storageSource !== "personal",
             },
           );
           sourceById.set(subjectId, storageSource);
