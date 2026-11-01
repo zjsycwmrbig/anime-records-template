@@ -34,7 +34,22 @@ function inferPagesRepository() {
 }
 
 const injected = globalThis.ANIME_ADMIN_CONFIG ?? {};
-const storedSettings = readStorage(localStorage, SETTINGS_KEY) ?? {};
+const inferredPagesRepository = inferPagesRepository();
+const injectedRepository = cleanString(injected.repository);
+const pageRepository = injectedRepository || inferredPagesRepository;
+const scopedSettingsKey = pageRepository
+  ? `${SETTINGS_KEY}:${encodeURIComponent(pageRepository)}`
+  : SETTINGS_KEY;
+const scopedSettings = readStorage(localStorage, scopedSettingsKey) ?? {};
+const legacySettings = readStorage(localStorage, SETTINGS_KEY) ?? {};
+const storedSettings =
+  Object.keys(scopedSettings).length > 0
+    ? scopedSettings
+    : pageRepository && cleanString(legacySettings.repository) === pageRepository
+      ? legacySettings
+      : pageRepository
+        ? {}
+        : legacySettings;
 const isLocalAdmin =
   ["127.0.0.1", "localhost", "::1"].includes(location.hostname) &&
   location.protocol === "http:";
@@ -42,8 +57,7 @@ const mode = isLocalAdmin ? "local" : "github";
 const settings = {
   repository:
     cleanString(storedSettings.repository) ||
-    cleanString(injected.repository) ||
-    inferPagesRepository(),
+    pageRepository,
   branch:
     cleanString(storedSettings.branch) ||
     cleanString(injected.branch) ||
@@ -337,7 +351,7 @@ async function saveConnection(event) {
     settings.repository = repositoryInfo.full_name || repository;
     settings.branch = branch;
     token = nextToken;
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    localStorage.setItem(scopedSettingsKey, JSON.stringify(settings));
     if (token) {
       localStorage.setItem(TOKEN_KEY, token);
     } else {

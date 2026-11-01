@@ -1,10 +1,10 @@
 name: Deploy GitHub Pages
 
 on:
+  # Build any pushed branch, then the job-level condition below keeps the
+  # Pages deployment on the repository's actual default branch. This also
+  # supports template users who renamed the default branch.
   push:
-    branches:
-      - main
-      - records
   workflow_dispatch:
 
 permissions:

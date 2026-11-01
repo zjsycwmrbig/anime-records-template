@@ -2,17 +2,100 @@
 
 一个可以通过 GitHub Template 生成个人副本的番剧档案仓库，同时包含展示站、本地管理页和 Bangumi Scout 油猴脚本。完整记录集中保存在 `data/anime.jsonl`，轻量索引保存在 `data/anime-index.jsonl`，Bangumi 评分与标签的个人缓存保存在 `data/bangumi-cache.jsonl`；模板另外预置 `admin/bangumi-public-catalog.json` 与 `admin/bangumi-public.json`，让新用户无需首次下载即可搜索索引并读取公共 Bangumi 元数据。GitHub Actions 在部署时校验数据、套用模板并生成 GitHub Pages 静态网站。
 
-## 先装油猴脚本
+## 快速开始：5 分钟启用
 
-油猴脚本是 MyAnimeLife 的首要入口：打开 Bilibili 番剧页面即可识别当前作品，在 B 站个人追番页可以翻页批量导入，随后把评分、短评和封面写入你的个人数据仓库。
+第一次使用请按下面的顺序操作。**先创建个人数据仓库，再启用 Pages，最后配置 Token 和油猴脚本。**
+
+### 1. 用模板创建个人数据仓库
+
+打开 [`Use this template`](https://github.com/zjsycwmrbig/MyAnimeLife/generate)，选择 **Create a new repository**，创建你自己的仓库，例如 `my-anime-life`。
+
+请使用 **Use this template**，不要直接 Fork 上游仓库。模板创建会从当前空白模板生成独立仓库，不会把上游历史中的个人记录带过来。创建完成后确认以下两个文件仍为空：
+
+```text
+data/anime.jsonl
+data/anime-index.jsonl
+```
+
+### 2. 启用 GitHub Pages
+
+进入你自己的数据仓库：
+
+```text
+Settings → Pages → Build and deployment → Source → GitHub Actions
+```
+
+然后进入仓库的 **Actions** 页面，等待 `Deploy GitHub Pages` 工作流完成。第一次部署可能需要几分钟。
+
+部署完成后，展示页和在线管理页地址通常是：
+
+```text
+展示页： https://<你的用户名>.github.io/<仓库名>/
+管理页： https://<你的用户名>.github.io/<仓库名>/admin/
+```
+
+Pages 使用工作流自带的 `GITHUB_TOKEN` 部署，**不需要为 Pages 额外创建个人 Token**。如果 Actions 没有自动运行，请检查仓库的 Actions 是否被允许，并确认提交到了当前默认分支。
+
+模板能够预先写入工作流所需的权限声明：`.github/workflows/pages.yml` 已声明 `contents: read`、`pages: write` 和 `id-token: write`，所以新仓库不需要手动给 Pages 配置个人 Token。模板无法替用户修改 GitHub 仓库级设置；第一次使用仍需要在 `Settings → Pages` 将来源设为 **GitHub Actions**，并确认 `Settings → Actions → General` 允许工作流运行。若你把默认分支改成了 `main` 以外的名称，工作流也会自动识别仓库默认分支部署。
+
+### 3. 创建 GitHub Fine-grained Token
+
+在线管理页和油猴脚本只有在需要写入个人数据仓库时才需要 Token。推荐创建细粒度 Token，不要使用拥有全部仓库权限的 Classic Token。
+
+打开 GitHub 的 [Fine-grained personal access token 创建页](https://github.com/settings/personal-access-tokens/new)，按下面设置：
+
+1. `Token name`：填写便于识别的名称，例如 `MyAnimeLife browser`。
+2. `Expiration`：选择合适的过期时间；过期后重新创建并替换即可。
+3. `Resource owner`：选择你的 GitHub 账号。
+4. `Repository access`：选择 **Only select repositories**，只勾选你的个人数据仓库，例如 `my-anime-life`。
+5. `Repository permissions`：将 **Contents** 设置为 **Read and write**；`Metadata: Read-only` 会由 GitHub 自动附带。
+6. 只有需要在在线管理页执行“从模板更新管理页”时，才额外将 **Workflows** 设置为 **Read and write**。
+7. 点击 **Generate token**，Token 只会完整显示一次，请立即复制保存到密码管理器中。
+
+权限对照如下：
+
+| 使用场景 | 是否需要 Token | 最小权限 |
+| --- | --- | --- |
+| 浏览展示页、浏览在线管理页、搜索索引 | 否 | 无 |
+| 油猴脚本保存评分、短评和番剧数据 | 是 | `Contents: Read and write` |
+| 在线管理页编辑、批量加入、删除、同步 | 是 | `Contents: Read and write` |
+| 在线管理页“从模板更新管理页” | 是 | `Contents: Read and write` + `Workflows: Read and write` |
+| GitHub Pages 自动部署 | 否 | 使用 Actions 自带权限，不使用个人 Token |
+
+不要授予 `Administration`、`Pages`、`Actions` 等无关权限。Token 只需要访问你的**个人数据仓库**，不要选择公开模板仓库 `zjsycwmrbig/MyAnimeLife`。
+
+### 4. 连接在线管理页
+
+打开你的 `/admin/` 管理页，点击右上角 **GitHub 连接设置**：
+
+1. 仓库填写 `你的用户名/你的仓库名`，例如 `alice/my-anime-life`。
+2. 分支填写实际存放数据的分支，默认是 `main`。
+3. 粘贴刚才创建的 Token。
+4. 点击 **检查连接**，看到仓库可读写后即可使用批量管理和同步。
+
+Token 只保存在当前浏览器当前站点的本地缓存中，不会写入仓库、URL、日志或分享链接。不要在公共电脑上保存 Token；需要清除时，在连接设置中点击“清除 Token”。
+
+管理页的仓库和分支设置会按当前 GitHub Pages 仓库隔离保存。例如你先打开 `alice/old-list`，之后再打开 `alice/new-list`，新页面不会继续使用旧仓库的管理缓存；这可以避免“展示页是空的，但管理页显示了另一仓库记录”的误判。Token 仍可在同一浏览器中复用，因为 Token 只是访问权限，不代表当前要管理的仓库。
+
+### 5. 安装并配置油猴脚本
+
+先安装 [Tampermonkey](https://www.tampermonkey.net/)，再点击下面的脚本安装链接：
 
 **[点击安装 Bangumi Scout 油猴脚本](https://raw.githubusercontent.com/zjsycwmrbig/MyAnimeLife/main/userscript/dist/anime-index.user.js)**
 
-1. 先用 GitHub 的 [`Use this template`](https://github.com/zjsycwmrbig/MyAnimeLife) 创建自己的数据仓库，确保 `data/anime.jsonl` 和 `data/anime-index.jsonl` 保持为空。
-2. 安装上面的脚本，在脚本设置中填写个人仓库地址、分支和 GitHub Fine-grained Token；只需要目标仓库的 `Contents: Read and write` 权限。
-3. 打开普通番剧页识别并保存，或打开 B 站个人追番列表，翻页后批量选择并一次同步。
+安装后打开 Tampermonkey 的脚本菜单，进入 **Bangumi Scout 设置**，填写同一个个人数据仓库、分支和 Token。打开普通番剧页即可识别当前作品；打开 B 站个人追番页，点击识别后可以自动翻页并批量导入。
 
-Token 只缓存在当前浏览器站点，不会写入仓库或分享链接。完整的安装检查、权限说明、识别模式和 B 站批量导入说明见 [`userscript/README.md`](userscript/README.md)。
+完整的识别模式、缓存、B 站批量导入和油猴设置说明见 [`userscript/README.md`](userscript/README.md)。
+
+### 首次使用检查清单
+
+- [ ] 个人仓库由 **Use this template** 创建，而不是直接 Fork
+- [ ] `data/anime.jsonl` 和 `data/anime-index.jsonl` 初始为空
+- [ ] `Settings → Pages` 的 Source 已设置为 `GitHub Actions`
+- [ ] `Deploy GitHub Pages` 工作流成功完成
+- [ ] Fine-grained Token 只选择个人数据仓库
+- [ ] `Contents` 权限为 `Read and write`
+- [ ] 在线管理页或油猴设置中的仓库地址、分支和 Token 已通过连接检查
 
 ## 先看效果
 
