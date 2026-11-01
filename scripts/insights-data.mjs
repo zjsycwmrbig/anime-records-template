@@ -531,7 +531,72 @@ function ratingBreakdownByTags(records, siteConfig) {
   );
 }
 
-export function calculateInsights(records, now = new Date(), siteConfig = {}) {
+function calculatePublicCacheCoverage(records, entries = []) {
+  const cacheBySubject = new Map(
+    (Array.isArray(entries) ? entries : [])
+      .map((entry) => [String(entry?.subjectId ?? "").trim(), entry])
+      .filter(([subjectId]) => subjectId),
+  );
+  let cached = 0;
+  let scored = 0;
+  let tagged = 0;
+  let summarized = 0;
+  let covered = 0;
+
+  for (const record of records) {
+    const subjectId = String(record.externalIds?.bangumi ?? "").trim();
+    const entry = subjectId ? cacheBySubject.get(subjectId) : null;
+    if (!entry) {
+      continue;
+    }
+    cached += 1;
+    if (
+      Number.isFinite(Number(entry.score)) &&
+      Number(entry.score) > 0
+    ) {
+      scored += 1;
+    }
+    if (Array.isArray(entry.tags) && entry.tags.length) {
+      tagged += 1;
+    }
+    if (String(entry.summary ?? "").trim()) {
+      summarized += 1;
+    }
+    if (
+      (Number.isFinite(Number(entry.score)) && Number(entry.score) > 0) ||
+      Number(entry.ratingCount) > 0 ||
+      (Array.isArray(entry.tags) && entry.tags.length > 0) ||
+      String(entry.summary ?? "").trim() ||
+      String(entry.coverUrl ?? "").trim()
+    ) {
+      covered += 1;
+    }
+  }
+
+  const total = records.length;
+  const fileEntries = cacheBySubject.size;
+  return {
+    fileEntries,
+    cached,
+    covered,
+    scored,
+    tagged,
+    summarized,
+    missing: Math.max(0, total - cached),
+    coveragePercent: percent(cached, total),
+    dataPercent: percent(covered, total),
+    scorePercent: percent(scored, total),
+    tagPercent: percent(tagged, total),
+    summaryPercent: percent(summarized, total),
+  };
+}
+
+export function calculateInsights(
+  records,
+  now = new Date(),
+  siteConfig = {},
+  options = {},
+) {
   const ratings = records
     .map((record) => record.rating)
     .filter((rating) => rating !== null)
@@ -646,6 +711,10 @@ export function calculateInsights(records, now = new Date(), siteConfig = {}) {
   const weeks = weekSeries(records, now);
   const activity = activityCalendar(records, now);
   const tagRadar = calculateTagRadar(records, siteConfig);
+  const publicCache = calculatePublicCacheCoverage(
+    records,
+    options.bangumiCacheEntries,
+  );
   const ratingByDecade = summarizeRatingBreakdown(
     [...decadesMap.values()]
       .filter((group) => group.ratings.length > 0)
@@ -676,6 +745,7 @@ export function calculateInsights(records, now = new Date(), siteConfig = {}) {
       notedPercent: percent(notedCount, total),
       seasonPercent: percent(seasonCount, total),
       sourcePercent: percent(sourcedCount, total),
+      publicCache,
       latestMonth: months.at(-1).count,
       latestWeek: activity.lastWeekCount,
     },

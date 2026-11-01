@@ -213,6 +213,82 @@ export function buildCatalog(raw, metadata = {}) {
   };
 }
 
+function compactCatalogItem(subjectId, value) {
+  const id = cleanString(subjectId);
+  if (!id || !Array.isArray(value)) {
+    return null;
+  }
+  const [displayTitle, originalTitle, rawYear, type, begin, seasonNumber, seasonLabel, coverUrl] = value;
+  const names = uniqueStrings([displayTitle, originalTitle]);
+  if (!names.length) {
+    return null;
+  }
+  const year = Number(rawYear);
+  const normalizedYear = Number.isInteger(year) && year >= 1900 && year <= 2200
+    ? year
+    : null;
+  const externalIds = { bangumi: id };
+  const catalogId = `bangumi:${id}`;
+  const normalizedNames = names.map(normalizeCatalogQuery);
+  return {
+    id: catalogId,
+    title: names[1] || names[0],
+    displayTitle: names[0],
+    names,
+    normalizedNames,
+    searchText: uniqueStrings([...names, id]).join(" "),
+    type: cleanString(type) || "unknown",
+    begin: cleanString(begin) || null,
+    year: normalizedYear,
+    sites: externalIds,
+    season: {
+      key: catalogId,
+      number:
+        Number.isInteger(Number(seasonNumber)) && Number(seasonNumber) > 0
+          ? Number(seasonNumber)
+          : null,
+      label: cleanString(seasonLabel) || null,
+      year: normalizedYear,
+    },
+    coverUrl: normalizeCoverUrl(coverUrl),
+  };
+}
+
+/**
+ * Expands the compact public catalog bundled with the template into the same
+ * search shape used by a freshly downloaded bangumi-data catalog.
+ */
+export function buildCatalogFromCompact(payload, metadata = {}) {
+  if (!payload?.items || typeof payload.items !== "object" || Array.isArray(payload.items)) {
+    throw new Error("紧凑全量索引缺少 items 对象");
+  }
+  const items = Object.entries(payload.items)
+    .map(([subjectId, value]) => compactCatalogItem(subjectId, value))
+    .filter(Boolean);
+  const source = payload.source ?? {};
+  const timestamp =
+    metadata.checkedAt ??
+    payload.generatedAt ??
+    source.checkedAt ??
+    new Date().toISOString();
+  return {
+    schemaVersion: 1,
+    source: {
+      id: cleanString(source.id) || "bangumi-data",
+      name: cleanString(source.name) || "bangumi-data",
+      version: cleanString(source.version) || "unknown",
+      fetchedAt: metadata.fetchedAt ?? timestamp,
+      checkedAt: timestamp,
+      license: cleanString(source.license) || "CC BY 4.0",
+      sourceUrl: cleanString(source.sourceUrl) || null,
+      ...(source.seededFrom ? { seededFrom: source.seededFrom } : {}),
+    },
+    builtAt: payload.generatedAt ?? new Date().toISOString(),
+    itemCount: items.length,
+    items,
+  };
+}
+
 export function isValidCatalog(catalog) {
   return (
     catalog?.schemaVersion === 1 &&

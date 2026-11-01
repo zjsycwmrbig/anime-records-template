@@ -2,7 +2,9 @@
 
 `data/anime.jsonl` 是唯一的个人番剧记录数据源。每行是一条完整 JSON 记录，构建时从中生成网页和 `dist/data/library.json`。`data/anime-index.jsonl` 是派生索引，用于网页列表和油猴端重复检测，不要手工编辑。`data/bangumi-cache.jsonl` 保存 Bangumi 评分、评分人数、排名和标签的个人缓存，不属于番剧记录。
 
-模板默认不包含任何番剧，三个 JSONL 文件都是空的。推荐用本地管理页维护：
+模板默认不包含任何个人番剧，`data/anime.jsonl`、`data/anime-index.jsonl` 和个人 `data/bangumi-cache.jsonl` 都是空的。模板会预置两份不属于个人记录的公共资产：`admin/bangumi-public-catalog.json` 是可离线启动的 Bangumi 全量索引，`admin/bangumi-public.json` 是 Bangumi 评分、排名和标签快照。它们来自维护者最新个人数据仓库中的公共索引/缓存，在新仓库创建后可以直接使用；需要时再从管理页主动更新。
+
+推荐用本地管理页维护：
 
 ```bash
 npm run admin
@@ -30,7 +32,7 @@ npm run admin
 
 ## Bangumi 评分与标签个人缓存
 
-发现页的 Bangumi 信息先读取 Bangumi Archive 静态快照，必要时再请求 Bangumi API。结果默认写入浏览器 IndexedDB，并标记为本机待保存；这不等于已经进入个人仓库。
+发现页的 Bangumi 信息先读取模板内置的 Bangumi Archive 静态快照，必要时再请求 Bangumi API。结果默认写入浏览器 IndexedDB，并标记为本机待保存；这不等于已经进入个人仓库。全量索引首次打开时也会先读取模板内置索引，再在后台检查 `bangumi-data` 是否有新版本。
 
 展开“Bangumi 评分与标签”后可以管理两层缓存：
 
@@ -42,7 +44,7 @@ npm run admin
 
 缓存以 Bangumi `subjectId` 为唯一键。合并时同一键只保留一条，`fetchedAt` 较新的值胜出。文件不是追加日志，每次保存都会写回规范化后的完整 JSONL；实际操作 `data/` 时应先提交或备份已有修改。
 
-模板更新会保留整个 `data/` 目录，因此 `data/bangumi-cache.jsonl` 会随个人记录和备份一起保留。上游模板仓库必须始终让该文件保持为空。
+模板更新会保留整个 `data/` 目录，因此 `data/bangumi-cache.jsonl` 会随个人记录和备份一起保留。上游模板仓库必须始终让个人数据 JSONL 保持为空；公共初始索引和快照放在 `admin/` 下，不会成为新用户的个人记录。
 
 ## 新增记录
 

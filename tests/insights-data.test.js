@@ -170,6 +170,61 @@ test("calculates collection windows, decades, and rating distributions", () => {
   );
 });
 
+test("reports public Bangumi cache coverage separately from site indexes", () => {
+  const insights = calculateInsights(
+    [
+      record({
+        id: "cached-score",
+        externalIds: { bangumi: "100" },
+      }),
+      record({
+        id: "cached-tags",
+        externalIds: { bangumi: "200" },
+      }),
+      record({
+        id: "uncached",
+        externalIds: { bangumi: "300" },
+      }),
+    ],
+    new Date("2026-10-25T12:00:00.000Z"),
+    {},
+    {
+      bangumiCacheEntries: [
+        {
+          subjectId: "100",
+          score: 8.8,
+          ratingCount: 120,
+          summary: "公共简介",
+          coverUrl: "https://example.com/cover.jpg",
+          tags: [{ name: "科幻", count: 20 }],
+        },
+        {
+          subjectId: "200",
+          tags: [{ name: "日常", count: 10 }],
+        },
+        {
+          subjectId: "999",
+        },
+      ],
+    },
+  );
+
+  assert.deepEqual(insights.summary.publicCache, {
+    fileEntries: 3,
+    cached: 2,
+    covered: 2,
+    scored: 1,
+    tagged: 2,
+    summarized: 1,
+    missing: 1,
+    coveragePercent: 66.7,
+    dataPercent: 66.7,
+    scorePercent: 33.3,
+    tagPercent: 66.7,
+    summaryPercent: 33.3,
+  });
+});
+
 test("builds automatic tag radar axes from normalized cached tags", () => {
   const now = new Date("2026-10-25T12:00:00.000Z");
   const insights = calculateInsights(

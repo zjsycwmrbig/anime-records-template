@@ -1,5 +1,6 @@
 import {
   buildCatalog,
+  buildCatalogFromCompact,
   catalogFacets,
   isValidCatalog,
   searchCatalog,
@@ -11,6 +12,7 @@ const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const DATABASE_NAME = "myanimelife-catalog";
 const STORE_NAME = "catalog";
 const CACHE_KEY = "bangumi-data";
+const BUNDLED_CATALOG_URL = new URL("./bangumi-public-catalog.json", import.meta.url);
 
 let catalog = null;
 let catalogPromise = null;
@@ -87,6 +89,22 @@ async function writeCache(catalog) {
   }
 }
 
+async function readBundledCatalog() {
+  try {
+    const response = await fetch(BUNDLED_CATALOG_URL, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = await response.json();
+    const catalog = buildCatalogFromCompact(payload);
+    return isValidCatalog(catalog) ? catalog : null;
+  } catch {
+    return null;
+  }
+}
+
 function isFresh(catalog) {
   const checkedAt = new Date(catalog?.source?.checkedAt ?? "").getTime();
   const age = Date.now() - checkedAt;
@@ -109,14 +127,15 @@ async function fetchLatestVersion() {
   return String(metadata.version);
 }
 
-async function downloadCatalog(version) {
+async function downloadCatalog(version, onProgress = () => {}) {
   const url = sourceUrl(version);
   let raw;
   try {
-    raw = await requestJson(url);
+    raw = await requestJsonWithProgress(url, onProgress);
   } catch {
-    raw = await requestJson(
+    raw = await requestJsonWithProgress(
       `https://unpkg.com/bangumi-data@${encodeURIComponent(version)}/dist/data.json`,
+      onProgress,
     );
   }
   const now = new Date().toISOString();
@@ -128,6 +147,41 @@ async function downloadCatalog(version) {
   });
 }
 
+async function requestJsonWithProgress(url, onProgress) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 120000);
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const total = Number(response.headers.get("content-length")) || 0;
+    if (!response.body?.getReader) {
+      const text = await response.text();
+      onProgress({ phase: "download", loaded: text.length, total, indeterminate: !total });
+      return JSON.parse(text);
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let loaded = 0;
+    let text = "";
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      loaded += chunk.value.byteLength;
+      text += decoder.decode(chunk.value, { stream: true });
+      onProgress({ phase: "download", loaded, total, indeterminate: !total });
+    }
+    text += decoder.decode();
+    return JSON.parse(text);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function loadCatalog(refresh) {
   const cached = await readCache();
   if (cached && !refresh && isFresh(cached)) {
@@ -137,6 +191,15 @@ async function loadCatalog(refresh) {
   if (cached && !refresh) {
     void refreshStaleCatalog(cached);
     return cached;
+  }
+
+  if (!refresh) {
+    const bundled = await readBundledCatalog();
+    if (bundled) {
+      await writeCache(bundled);
+      void refreshStaleCatalog(bundled);
+      return bundled;
+    }
   }
 
   try {
@@ -190,6 +253,30 @@ async function refreshStaleCatalog(cached) {
   }
 }
 
+async function replaceCatalog(onProgress = () => {}) {
+  onProgress({ phase: "version", message: "正在检查 bangumi-data 版本" });
+  const version = await fetchLatestVersion();
+  const cached = await readCache();
+  onProgress({ phase: "version", version, message: `发现 bangumi-data ${version}` });
+  if (cached?.source?.version === version) {
+    const updated = {
+      ...cached,
+      source: { ...cached.source, checkedAt: new Date().toISOString() },
+    };
+    await writeCache(updated);
+    catalog = updated;
+      onProgress({ phase: "done", version, itemCount: updated.itemCount, reused: true });
+    return { ...updated, reused: true };
+  }
+  const downloaded = await downloadCatalog(version, onProgress);
+  onProgress({ phase: "parse", version, message: "正在建立索引" });
+  await writeCache(downloaded);
+  catalog = downloaded;
+  catalogPromise = Promise.resolve(downloaded);
+  onProgress({ phase: "done", version, itemCount: downloaded.itemCount });
+  return downloaded;
+}
+
 function getCatalog(refresh = false) {
   if (catalog && refresh) {
     catalog = null;
@@ -222,6 +309,7 @@ async function search(options) {
       checkedAt: catalog.source.checkedAt,
       license: catalog.source.license,
       sourceUrl: catalog.source.sourceUrl,
+      seededFrom: catalog.source.seededFrom ?? null,
     },
     facets: catalogFacets(catalog.items),
   };
@@ -250,6 +338,50 @@ self.addEventListener("message", async (event) => {
         requestId,
         error: error.message || "索引读取失败",
       });
+    }
+    return;
+  }
+  if (type === "getBangumiItems") {
+    try {
+      const loaded = await getCatalog(false);
+      self.postMessage({
+        type: "result",
+        requestId,
+        payload: loaded.items
+          .filter((item) => item.sites?.bangumi)
+          .map((item) => ({
+            id: item.id,
+            displayTitle: item.displayTitle,
+            title: item.title,
+            year: item.year,
+            sites: { bangumi: item.sites.bangumi },
+            coverUrl: item.coverUrl ?? null,
+          })),
+      });
+    } catch (error) {
+      self.postMessage({ type: "error", requestId, error: error.message || "索引读取失败" });
+    }
+    return;
+  }
+  if (type === "replace") {
+    try {
+      const payload = await replaceCatalog((progress) =>
+        self.postMessage({ type: "progress", requestId, payload: progress }),
+      );
+      self.postMessage({
+        type: "result",
+        requestId,
+      payload: {
+        version: payload.source.version,
+        checkedAt: payload.source.checkedAt,
+        itemCount: payload.itemCount,
+        reused: Boolean(payload.reused),
+        license: payload.source.license,
+          sourceUrl: payload.source.sourceUrl,
+        },
+      });
+    } catch (error) {
+      self.postMessage({ type: "error", requestId, error: error.message || "索引替换失败" });
     }
     return;
   }

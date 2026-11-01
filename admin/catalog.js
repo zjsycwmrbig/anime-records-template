@@ -1,6 +1,7 @@
 import {
   api,
   getRuntime,
+  replaceCatalog,
   refreshRuntimeLibrary,
 } from "./runtime.js";
 import { TEMPLATE_REPOSITORY } from "./template-updater.js";
@@ -12,6 +13,7 @@ import { createRatingControl } from "./rating-control.js";
 import { resolveCatalogCovers } from "./cover-cache.js";
 import {
   applyBangumiMetadata,
+  collectBangumiTagHeatFromEntries,
   clearBangumiMetadata,
   hasUsableBangumiMetadata,
   importBangumiMetadata,
@@ -23,6 +25,7 @@ import {
   removeBangumiMetadata,
   replaceBangumiMetadataBySource,
   resolveBangumiMetadata,
+  resolveAllBangumiMetadata,
   toBangumiCacheEntry,
 } from "./bangumi-metadata-cache.js";
 import {
@@ -87,11 +90,19 @@ const state = {
   metadataPersonalUpdatedAt: null,
   metadataPersonalFile: "data/bangumi-cache.jsonl",
   metadataEntries: new Map(),
+  metadataIndexedCount: 0,
   metadataBrowserCount: 0,
   metadataLocalCount: 0,
   metadataLocalSize: 0,
   metadataCacheBusy: false,
   metadataCacheAction: "",
+  metadataAllLoading: false,
+  metadataAllAbortController: null,
+  metadataAllProgress: null,
+  catalogReplaceLoading: false,
+  catalogReplaceProgress: null,
+  catalogReplaceStartedAt: 0,
+  catalogReplaceLoadedAt: 0,
   metadataStats: {
     total: 0,
     indexed: 0,
@@ -130,6 +141,10 @@ const elements = {
   catalogOwnership: document.querySelector("#catalogOwnership"),
   catalogSource: document.querySelector("#catalogSource"),
   catalogRefresh: document.querySelector("#catalogRefresh"),
+  catalogIndexProgress: document.querySelector("#catalogIndexProgress"),
+  catalogIndexProgressLabel: document.querySelector(
+    "#catalogIndexProgressLabel",
+  ),
   catalogMetadataScoreMin: document.querySelector("#catalogMetadataScoreMin"),
   catalogMetadataScoreMax: document.querySelector("#catalogMetadataScoreMax"),
   catalogMetadataAvailability: document.querySelector(
@@ -180,6 +195,13 @@ const elements = {
   ),
   catalogMetadataSyncAll: document.querySelector(
     "#catalogMetadataSyncAll",
+  ),
+  catalogMetadataFetchAll: document.querySelector("#catalogMetadataFetchAll"),
+  catalogMetadataCancelAll: document.querySelector("#catalogMetadataCancelAll"),
+  catalogMetadataSaveAll: document.querySelector("#catalogMetadataSaveAll"),
+  catalogMetadataProgress: document.querySelector("#catalogMetadataProgress"),
+  catalogMetadataProgressLabel: document.querySelector(
+    "#catalogMetadataProgressLabel",
   ),
   catalogMetadataRemovePage: document.querySelector(
     "#catalogMetadataRemovePage",
@@ -769,7 +791,11 @@ function renderKnownTagCatalog() {
     elements.tagKnownStatus.textContent =
       `标签索引读取失败：${state.knownTagsError}`;
   } else if (!state.knownTagsLoaded) {
-    elements.tagKnownStatus.textContent = "进入此分区后加载标签索引。";
+    elements.tagKnownStatus.textContent =
+      "标签池依赖本机公共 Bangumi 缓存；请先在全量索引中获取公共数据。";
+  } else if (!state.knownTags.length) {
+    elements.tagKnownStatus.textContent =
+      "本机公共缓存中暂时没有可用标签；请先获取全量公共数据。";
   } else if (!available.length) {
     elements.tagKnownStatus.textContent =
       "已选完当前公共索引中的全部标签；仍可在下方添加自定义标签。";
@@ -791,7 +817,7 @@ async function loadKnownTagCatalog() {
   state.knownTagsLoading = true;
   state.knownTagsError = "";
   renderKnownTagCatalog();
-  const request = readKnownBangumiTags()
+  const request = readKnownBangumiTags({ allowSnapshot: false })
     .then((tags) => {
       state.knownTags = Array.isArray(tags) ? tags : [];
       state.knownTagsLoaded = true;
@@ -1451,6 +1477,45 @@ function renderCacheManager() {
       state.metadataCacheAction === "sync-all",
     );
   }
+  if (elements.catalogMetadataFetchAll) {
+    elements.catalogMetadataFetchAll.disabled =
+      busy || state.metadataAllLoading || state.loading || !state.catalogLoaded;
+    elements.catalogMetadataFetchAll.textContent = state.metadataAllLoading
+      ? "全量获取中"
+      : "获取全量公共数据";
+    elements.catalogMetadataFetchAll.classList.toggle(
+      "is-loading",
+      state.metadataAllLoading,
+    );
+  }
+  if (elements.catalogMetadataCancelAll) {
+    elements.catalogMetadataCancelAll.hidden = !state.metadataAllLoading;
+    elements.catalogMetadataCancelAll.disabled = !state.metadataAllLoading;
+  }
+  if (elements.catalogMetadataSaveAll) {
+    elements.catalogMetadataSaveAll.disabled =
+      cacheActionsDisabled || !writable || state.metadataLocalCount === 0;
+    elements.catalogMetadataSaveAll.textContent = state.metadataCacheAction === "sync-all"
+      ? "正在保存全量缓存"
+      : `保存本机缓存 (${state.metadataLocalCount})`;
+  }
+  if (elements.catalogMetadataProgress) {
+    const progress = state.metadataAllProgress;
+    elements.catalogMetadataProgress.hidden = !progress;
+    elements.catalogMetadataProgress.max = Math.max(1, progress?.total ?? 1);
+    elements.catalogMetadataProgress.value = Math.min(
+      progress?.completed ?? 0,
+      progress?.total ?? 1,
+    );
+  }
+  if (elements.catalogMetadataProgressLabel) {
+    const progress = state.metadataAllProgress;
+    elements.catalogMetadataProgressLabel.textContent = progress
+      ? `${progress.phaseLabel ?? "准备中"} · ${progress.completed ?? 0}/${progress.total ?? 0}` +
+        (progress.speed ? ` · ${progress.speed.toFixed(1)} 条/秒` : "") +
+        (progress.failed ? ` · 失败 ${progress.failed}` : "")
+      : "全量获取只写入本机缓存，不会自动提交 GitHub。";
+  }
   if (elements.catalogMetadataRemovePage) {
     elements.catalogMetadataRemovePage.disabled =
       cacheActionsDisabled || !writable || personalPageIds.length === 0;
@@ -1473,6 +1538,71 @@ function renderCacheManager() {
   }
   elements.catalogCacheManager?.classList.toggle("is-busy", busy);
   elements.catalogCacheManager?.setAttribute("aria-busy", String(busy));
+}
+
+async function fetchAllBangumiMetadata() {
+  if (state.metadataAllLoading) return;
+  state.metadataAllLoading = true;
+  state.metadataAllProgress = {
+    phaseLabel: "正在读取全量索引",
+    completed: 0,
+    total: 0,
+    failed: 0,
+  };
+  state.metadataAllAbortController = new AbortController();
+  renderCacheManager();
+  try {
+    const payload = await api("/api/catalog/bangumi-items");
+    const items = payload.items ?? [];
+    state.metadataIndexedCount = items.length;
+    state.metadataAllProgress = {
+      phaseLabel: "正在读取本机缓存",
+      completed: 0,
+      total: items.length,
+      failed: 0,
+    };
+    renderCacheManager();
+    const result = await resolveAllBangumiMetadata(items, {
+      signal: state.metadataAllAbortController.signal,
+      onProgress(progress) {
+        state.metadataAllProgress = {
+          ...progress,
+          phaseLabel:
+            progress.phase === "snapshot"
+              ? "正在装填公共快照"
+              : progress.phase === "api"
+                ? "正在在线补充"
+                : progress.phase === "cancelled"
+                  ? "已请求停止"
+                  : "正在检查本机缓存",
+        };
+        renderCacheManager();
+      },
+    });
+    await refreshLocalBangumiCacheFacts();
+    state.knownTagsLoaded = false;
+    state.knownTagsPromise = null;
+    void loadKnownTagCatalog();
+    if (state.pageItems.length) {
+      await applyCachedBangumiMetadata(state.pageItems);
+      applyCatalogView({ render: true });
+    }
+    const message = `全量公共数据完成：缓存 ${result.fetched} 条，失败 ${result.failed} 条；结果已保存在本机。`;
+    setCacheManagerStatus(message, result.failed ? "error" : "success");
+    showToast(message, { error: Boolean(result.failed), duration: 7000 });
+  } catch (error) {
+    setCacheManagerStatus(`全量公共数据获取失败：${error.message}`, "error");
+    showToast(error.message, { error: true });
+  } finally {
+    state.metadataAllLoading = false;
+    state.metadataAllAbortController = null;
+    renderCacheManager();
+  }
+}
+
+function cancelAllBangumiMetadata() {
+  state.metadataAllAbortController?.abort();
+  setCacheManagerStatus("正在停止全量公共数据获取；已完成的本机缓存会保留。", "success");
 }
 
 async function refreshLocalBangumiCacheFacts() {
@@ -2024,15 +2154,15 @@ function renderCatalogMetadataStatus(message = "") {
   }
   if (elements.catalogMetadataTotalCount) {
     elements.catalogMetadataTotalCount.textContent =
-      stats.indexed.toLocaleString("zh-CN");
+      (state.metadataIndexedCount || stats.indexed).toLocaleString("zh-CN");
   }
   if (elements.catalogMetadataCacheCount) {
     elements.catalogMetadataCacheCount.textContent =
-      stats.personalAvailable.toLocaleString("zh-CN");
+      stats.cached.toLocaleString("zh-CN");
   }
   if (elements.catalogMetadataLocalCount) {
     elements.catalogMetadataLocalCount.textContent =
-      stats.browserAvailable.toLocaleString("zh-CN");
+      stats.browser.toLocaleString("zh-CN");
   }
   if (elements.catalogMetadataScoreCount) {
     elements.catalogMetadataScoreCount.textContent =
@@ -2044,7 +2174,10 @@ function renderCatalogMetadataStatus(message = "") {
   }
   if (elements.catalogMetadataMissingCount) {
     elements.catalogMetadataMissingCount.textContent =
-      stats.missing.toLocaleString("zh-CN");
+      Math.max(
+        0,
+        (state.metadataIndexedCount || stats.indexed) - stats.available,
+      ).toLocaleString("zh-CN");
   }
   if (elements.catalogMetadataCacheBadge) {
     elements.catalogMetadataCacheBadge.hidden = stats.browserAvailable === 0;
@@ -2978,12 +3111,140 @@ async function hydrateSelectedCover(item) {
 
 function renderCatalogSource(meta = {}) {
   const version = meta.version || "未知版本";
-  elements.catalogSourceSummary.textContent = `bangumi-data ${version} · 当前默认`;
+  elements.catalogSourceSummary.textContent = meta.seededFrom
+    ? `bangumi-data ${version} · 模板内置初始索引`
+    : `bangumi-data ${version} · 当前默认`;
   elements.catalogSourceVersion.textContent = version;
   elements.catalogSourceCheckedAt.textContent = meta.checkedAt
     ? formatDate(meta.checkedAt)
     : "尚未检查";
   elements.catalogSourceLicense.textContent = meta.license || "CC BY 4.0";
+}
+
+function formatTransferSpeed(bytesPerSecond) {
+  const bytes = Math.max(0, Number(bytesPerSecond) || 0);
+  if (!bytes) {
+    return "";
+  }
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB/s`;
+  }
+  return `${Math.max(1, Math.round(bytes / 1024))} KB/s`;
+}
+
+function renderCatalogIndexProgress() {
+  const progress = state.catalogReplaceProgress;
+  if (elements.catalogIndexProgress) {
+    elements.catalogIndexProgress.hidden = !progress;
+    elements.catalogIndexProgress.max = Math.max(1, progress?.total ?? 1);
+    elements.catalogIndexProgress.value = Math.min(
+      progress?.loaded ?? 0,
+      progress?.total ?? 1,
+    );
+  }
+  if (elements.catalogIndexProgressLabel) {
+    if (!progress) {
+      elements.catalogIndexProgressLabel.textContent =
+        "新索引完整下载并建立成功后，才会替换当前本机索引。";
+    } else if (progress.phase === "download") {
+      const loaded = formatByteSize(progress.loaded);
+      const total = progress.total
+        ? ` / ${formatByteSize(progress.total)}`
+        : "";
+      const speed = formatTransferSpeed(progress.speed);
+      elements.catalogIndexProgressLabel.textContent = [
+        "正在下载 bangumi-data",
+        `${loaded}${total}`,
+        speed,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    } else if (progress.phase === "parse") {
+      elements.catalogIndexProgressLabel.textContent =
+        "下载完成，正在建立本机搜索索引...";
+    } else if (progress.phase === "version") {
+      elements.catalogIndexProgressLabel.textContent =
+        progress.message || "正在检查 bangumi-data 最新版本...";
+    } else if (progress.phase === "done") {
+      elements.catalogIndexProgressLabel.textContent = progress.reused
+        ? `当前已经是 bangumi-data ${progress.version}，已刷新检查时间。`
+        : `索引已替换为 bangumi-data ${progress.version}，共 ${progress.itemCount?.toLocaleString("zh-CN") ?? 0} 条。`;
+    } else {
+      elements.catalogIndexProgressLabel.textContent =
+        progress.message || "正在处理全量索引...";
+    }
+  }
+  if (elements.catalogRefresh) {
+    elements.catalogRefresh.disabled =
+      state.catalogReplaceLoading || state.loading;
+    elements.catalogRefresh.textContent = state.catalogReplaceLoading
+      ? "索引处理中"
+      : "下载并替换索引";
+    elements.catalogRefresh.classList.toggle(
+      "is-loading",
+      state.catalogReplaceLoading,
+    );
+  }
+}
+
+async function replaceCatalogIndex() {
+  if (state.catalogReplaceLoading || state.loading) {
+    return;
+  }
+  state.catalogReplaceLoading = true;
+  state.catalogReplaceStartedAt = Date.now();
+  state.catalogReplaceLoadedAt = 0;
+  state.catalogReplaceProgress = {
+    phase: "version",
+    message: "正在检查 bangumi-data 最新版本...",
+    loaded: 0,
+    total: 0,
+  };
+  renderCatalogIndexProgress();
+  try {
+    const result = await replaceCatalog({
+      onProgress(progress) {
+        const now = Date.now();
+        const loaded = Number(progress.loaded) || 0;
+        const elapsed = Math.max(1, now - state.catalogReplaceStartedAt);
+        const previousLoaded = state.catalogReplaceLoadedAt;
+        state.catalogReplaceLoadedAt = loaded;
+        state.catalogReplaceProgress = {
+          ...progress,
+          speed:
+            progress.phase === "download" && loaded > previousLoaded
+              ? loaded / (elapsed / 1000)
+              : 0,
+        };
+        renderCatalogIndexProgress();
+      },
+    });
+    state.catalogReplaceProgress = {
+      phase: "done",
+      version: result.version,
+      itemCount: result.itemCount,
+      reused: Boolean(result.reused),
+    };
+    state.catalogLoaded = false;
+    state.metadataIndexedCount = 0;
+    state.knownTagsLoaded = false;
+    state.knownTagsPromise = null;
+    renderCatalogIndexProgress();
+    await loadCatalog();
+    showToast(
+      result.reused
+        ? `bangumi-data ${result.version} 已是当前索引`
+        : `索引已更新到 bangumi-data ${result.version}`,
+      { duration: 6000 },
+    );
+  } catch (error) {
+    state.catalogReplaceProgress = null;
+    renderCatalogIndexProgress();
+    showToast(`索引替换失败：${error.message}`, { error: true, duration: 7000 });
+  } finally {
+    state.catalogReplaceLoading = false;
+    renderCatalogIndexProgress();
+  }
 }
 
 async function loadCatalog(options = {}) {
@@ -2996,7 +3257,7 @@ async function loadCatalog(options = {}) {
   elements.catalogRefresh.classList.add("is-loading");
   elements.catalogRefresh.disabled = true;
   elements.catalogStatus.textContent =
-    "正在检查索引；首次使用需要下载并建立本地缓存";
+    "正在读取索引；首次使用优先使用模板内置数据，并在后台检查更新";
   state.metadataLoading = false;
   renderCatalogRows();
 
@@ -3046,7 +3307,7 @@ async function loadCatalog(options = {}) {
       state.page = pageInfo.page;
       state.loading = false;
       elements.catalogRefresh.classList.remove("is-loading");
-      elements.catalogRefresh.disabled = false;
+      renderCatalogIndexProgress();
       loadCatalog(options);
       return;
     }
@@ -3089,7 +3350,7 @@ async function loadCatalog(options = {}) {
     if (sequence === requestSequence) {
       state.loading = false;
       elements.catalogRefresh.classList.remove("is-loading");
-      elements.catalogRefresh.disabled = false;
+      renderCatalogIndexProgress();
       renderCatalogRows();
     }
   }
@@ -3631,6 +3892,18 @@ elements.catalogMetadataSyncAll?.addEventListener(
   "click",
   mergeLocalBangumiCache,
 );
+elements.catalogMetadataFetchAll?.addEventListener(
+  "click",
+  fetchAllBangumiMetadata,
+);
+elements.catalogMetadataCancelAll?.addEventListener(
+  "click",
+  cancelAllBangumiMetadata,
+);
+elements.catalogMetadataSaveAll?.addEventListener(
+  "click",
+  mergeLocalBangumiCache,
+);
 elements.catalogMetadataRemovePage?.addEventListener(
   "click",
   removePageBangumiCache,
@@ -3666,7 +3939,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 elements.catalogRefresh.addEventListener("click", () => {
-  loadCatalog({ refresh: true });
+  replaceCatalogIndex();
 });
 
 elements.catalogPageSize.addEventListener("change", () => {
@@ -3778,6 +4051,7 @@ window.addEventListener("anime-runtime:changed", () => {
   state.metadataPersonalSize = 0;
   state.metadataPersonalUpdatedAt = null;
   state.metadataPersonalLoaded = false;
+  state.metadataIndexedCount = 0;
   state.metadataPersonalLoading = false;
   personalCacheSequence += 1;
   personalCachePromise = null;

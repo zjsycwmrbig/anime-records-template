@@ -29,10 +29,12 @@ async function request(path, { allowNotFound = false } = {}) {
 }
 
 const metadata = await request("");
-const [animeFile, indexFile, bangumiCacheFile, backups] = await Promise.all([
+const [animeFile, indexFile, bangumiCacheFile, publicCatalogFile, publicSnapshotFile, backups] = await Promise.all([
   request("/contents/data/anime.jsonl", { allowNotFound: true }),
   request("/contents/data/anime-index.jsonl", { allowNotFound: true }),
   request("/contents/data/bangumi-cache.jsonl", { allowNotFound: true }),
+  request("/contents/admin/bangumi-public-catalog.json", { allowNotFound: true }),
+  request("/contents/admin/bangumi-public.json", { allowNotFound: true }),
   request("/contents/data/backups", { allowNotFound: true }),
 ]);
 
@@ -63,6 +65,12 @@ if (!bangumiCacheFile) {
     `data/bangumi-cache.jsonl 应为空，当前 ${bangumiCacheFile.size} 字节`,
   );
 }
+if (!publicCatalogFile || Number(publicCatalogFile.size) === 0) {
+  issues.push("admin/bangumi-public-catalog.json 尚未创建，模板缺少初始公共索引");
+}
+if (!publicSnapshotFile || Number(publicSnapshotFile.size) === 0) {
+  issues.push("admin/bangumi-public.json 尚未创建，模板缺少初始 Bangumi 缓存");
+}
 if (
   !Array.isArray(backups) ||
   backups.some((entry) => entry.type === "file" && entry.name.endsWith(".json"))
@@ -81,6 +89,7 @@ if (issues.length > 0) {
   console.log("- 仓库公开");
   console.log("- Template repository 已启用");
   console.log("- 默认分支为 main");
-  console.log("- JSONL、Bangumi 个人缓存与备份目录为空");
+  console.log("- 个人 JSONL 与备份目录为空");
+  console.log("- 模板内置公共索引与 Bangumi 元数据缓存");
   console.log("- 新仓库创建时仍应保持 Include all branches 未勾选");
 }

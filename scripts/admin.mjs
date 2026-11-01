@@ -201,6 +201,11 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, result);
       return;
     }
+    if (url.pathname === "/api/catalog/replace" && request.method === "POST") {
+      assertLocalRequest(request);
+      sendJson(response, 200, await catalogStore.replace());
+      return;
+    }
     if (url.pathname === "/api/catalog/bulk" && request.method === "POST") {
       assertLocalRequest(request);
       const body = await readBody(request);

@@ -544,6 +544,11 @@ async function onlineApi(path, options) {
     );
     return payload;
   }
+  if (url.pathname === "/api/catalog/bangumi-items" && method === "GET") {
+    return {
+      items: await getCatalogStore().getBangumiItems(),
+    };
+  }
   if (url.pathname === "/api/catalog/bulk" && method === "POST") {
     const body = parseBody(options);
     const selections = Array.isArray(body.items) ? body.items : [];
@@ -665,6 +670,13 @@ export function getRuntime() {
     branch: settings.branch,
     writable: mode === "local" || Boolean(token),
   };
+}
+
+export function replaceCatalog(options = {}) {
+  if (mode === "local") {
+    return localApi("/api/catalog/replace", { method: "POST" });
+  }
+  return getCatalogStore().replace(options);
 }
 
 export function refreshRuntimeLibrary() {

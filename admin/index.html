@@ -430,8 +430,14 @@
           <div class="catalog-meta">
             <span id="catalogStatus">首次进入时才加载全量索引</span>
             <button id="catalogRefresh" class="text-button" type="button">
-              检查索引更新
+              下载并替换索引
             </button>
+          </div>
+          <div class="catalog-index-progress" aria-live="polite">
+            <progress id="catalogIndexProgress" max="1" value="0" hidden></progress>
+            <span id="catalogIndexProgressLabel">
+              新索引完整下载并建立成功后，才会替换当前本机索引。
+            </span>
           </div>
 
           <div class="toolbar catalog-toolbar">
@@ -498,7 +504,7 @@
                 <span class="catalog-public-mark" aria-hidden="true">B</span>
                 <span class="catalog-public-title">
                   <strong>Bangumi 评分与标签</strong>
-                  <small>个人缓存 · Bangumi Archive 上游</small>
+                <small>bangumi-data 索引关联的公共 Bangumi 数据 · 本机优先</small>
                 </span>
               </span>
               <span class="catalog-public-heading-state">
@@ -515,27 +521,27 @@
             </summary>
             <div class="catalog-public-stats" aria-label="已有 Bangumi 缓存统计">
               <span>
-                <small>缓存条目</small>
+                <small>索引条目</small>
                 <strong id="catalogMetadataTotalCount">0</strong>
               </span>
               <span>
-                <small>个人缓存</small>
+                <small>公共缓存覆盖</small>
                 <strong id="catalogMetadataCacheCount">0</strong>
               </span>
               <span>
-                <small>本机缓存</small>
+                <small>本机公共缓存</small>
                 <strong id="catalogMetadataLocalCount">0</strong>
               </span>
               <span>
-                <small>评分条目</small>
+                <small>公共评分数据</small>
                 <strong id="catalogMetadataScoreCount">0</strong>
               </span>
               <span>
-                <small>标签条目</small>
+                <small>公共标签数据</small>
                 <strong id="catalogMetadataTagCount">0</strong>
               </span>
               <span>
-                <small>无评分或标签</small>
+                <small>未覆盖</small>
                 <strong id="catalogMetadataMissingCount">0</strong>
               </span>
               <a
@@ -564,6 +570,12 @@
                 <code id="catalogMetadataPersonalFile">data/bangumi-cache.jsonl</code>
               </div>
               <div class="catalog-cache-actions">
+                <button id="catalogMetadataFetchAll" class="button button-primary" type="button">
+                  获取全量公共数据
+                </button>
+                <button id="catalogMetadataCancelAll" class="button button-quiet" type="button" hidden>
+                  停止获取
+                </button>
                 <button id="catalogMetadataReload" class="button button-quiet" type="button">
                   从仓库装填
                 </button>
@@ -572,6 +584,9 @@
                 </button>
                 <button id="catalogMetadataSyncAll" class="button button-quiet" type="button">
                   合并本机
+                </button>
+                <button id="catalogMetadataSaveAll" class="button button-quiet" type="button">
+                  保存本机缓存
                 </button>
                 <button id="catalogMetadataRemovePage" class="button button-quiet" type="button">
                   移除本页
@@ -586,6 +601,10 @@
               <p id="catalogMetadataManagerStatus" role="status" aria-live="polite">
                 正在读取个人仓库缓存...
               </p>
+              <div class="catalog-metadata-progress" aria-live="polite">
+                <progress id="catalogMetadataProgress" max="1" value="0" hidden></progress>
+                <span id="catalogMetadataProgressLabel">全量获取只写入本机缓存，不会自动提交 GitHub。</span>
+              </div>
             </div>
             <div class="catalog-public-controls">
               <div class="filter-range catalog-public-score" role="group" aria-label="Bangumi 评分范围">
@@ -609,7 +628,6 @@
                   type="button"
                   aria-expanded="false"
                   aria-controls="catalogTagPanel"
-                >
                   <span class="catalog-multi-filter-label">标签</span>
                   <strong id="catalogTagSummary">全部标签</strong>
                 </button>

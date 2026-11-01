@@ -189,6 +189,40 @@ export class CatalogStore {
     }
   }
 
+  async replace() {
+    const cached = this.catalog ?? (await this.readCache());
+    const version = await this.fetchLatestVersion();
+    if (cached?.source?.version === version) {
+      this.catalog = {
+        ...cached,
+        source: {
+          ...cached.source,
+          checkedAt: this.now(),
+        },
+      };
+      await this.writeCache(this.catalog);
+      return {
+        version,
+        checkedAt: this.catalog.source.checkedAt,
+        itemCount: this.catalog.itemCount,
+        license: this.catalog.source.license,
+        sourceUrl: this.catalog.source.sourceUrl,
+        reused: true,
+      };
+    }
+    const next = await this.downloadCatalog(version);
+    await this.writeCache(next);
+    this.catalog = next;
+    return {
+      version,
+      checkedAt: next.source.checkedAt,
+      itemCount: next.itemCount,
+      license: next.source.license,
+      sourceUrl: next.source.sourceUrl,
+      reused: false,
+    };
+  }
+
   async search(options = {}, libraryIndex = []) {
     const catalog = await this.load({ refresh: Boolean(options.refresh) });
     const owned = ownedRecordLookup(libraryIndex);

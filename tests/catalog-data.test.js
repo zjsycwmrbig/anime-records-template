@@ -2,10 +2,37 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildCatalog,
+  buildCatalogFromCompact,
   createRecordFromCatalog,
   recordIdentityKeys,
   searchCatalog,
 } from "../scripts/catalog-data.mjs";
+
+test("expands the bundled compact catalog for offline-first search", () => {
+  const catalog = buildCatalogFromCompact({
+    generatedAt: "2026-10-27T00:00:00.000Z",
+    source: { version: "0.3.234", license: "CC BY 4.0" },
+    items: {
+      "265": [
+        "进击的巨人",
+        "進撃の巨人",
+        2013,
+        "tv",
+        "2013-04-06T15:00:00.000Z",
+        null,
+        null,
+        "//images.example.test/cover.jpg",
+      ],
+    },
+  });
+
+  assert.equal(catalog.itemCount, 1);
+  assert.equal(catalog.items[0].id, "bangumi:265");
+  assert.equal(catalog.items[0].displayTitle, "进击的巨人");
+  assert.deepEqual(catalog.items[0].sites, { bangumi: "265" });
+  assert.equal(catalog.items[0].coverUrl, "https://images.example.test/cover.jpg");
+  assert.equal(searchCatalog(catalog.items, { query: "进击" }).total, 1);
+});
 
 const rawCatalog = {
   items: [

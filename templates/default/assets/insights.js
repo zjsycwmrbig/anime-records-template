@@ -27,9 +27,47 @@
 
   for (const carousel of document.querySelectorAll("[data-carousel]")) {
     const slides = [...carousel.querySelectorAll("[data-carousel-slide]")];
+    if (!slides.length) {
+      continue;
+    }
     const status = carousel.querySelector("[data-carousel-status]");
     const previous = carousel.querySelector("[data-carousel-prev]");
     const next = carousel.querySelector("[data-carousel-next]");
+    const subtabs = document.createElement("div");
+    subtabs.className = "insight-subtabs";
+    subtabs.setAttribute("role", "tablist");
+    subtabs.setAttribute("aria-label", "当前模块快捷视图");
+    const subtabsByIndex = [];
+    slides.forEach((slide, slideIndex) => {
+      const label = slide.getAttribute("aria-label") || `视图 ${slideIndex + 1}`;
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "insight-subtab";
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-selected", "false");
+      tab.textContent = label;
+      tab.addEventListener("click", () => showSlide(slideIndex));
+      tab.addEventListener("keydown", (event) => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+          return;
+        }
+        event.preventDefault();
+        const nextIndex =
+          event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? slides.length - 1
+              : (slideIndex +
+                  (event.key === "ArrowRight" ? 1 : -1) +
+                  slides.length) %
+                slides.length;
+        subtabsByIndex[nextIndex]?.focus();
+        showSlide(nextIndex);
+      });
+      subtabs.append(tab);
+      subtabsByIndex.push(tab);
+    });
+    carousel.querySelector(".carousel-toolbar")?.after(subtabs);
     let activeIndex = 0;
     const showSlide = (index) => {
       activeIndex = (index + slides.length) % slides.length;
@@ -37,6 +75,12 @@
         const active = slideIndex === activeIndex;
         slide.classList.toggle("is-active", active);
         slide.hidden = !active;
+      });
+      subtabsByIndex.forEach((tab, tabIndex) => {
+        const active = tabIndex === activeIndex;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", String(active));
+        tab.tabIndex = active ? 0 : -1;
       });
       if (status) status.textContent = `${activeIndex + 1} / ${slides.length}`;
     };

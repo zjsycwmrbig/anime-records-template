@@ -41,7 +41,7 @@
         {% if insights.tagRadar.available %}
           <button class="insight-tab" id="tab-tags" role="tab" aria-selected="false" aria-controls="panel-tags" data-insights-tab="tags">标签偏好</button>
         {% endif %}
-        <button class="insight-tab" id="tab-sources" role="tab" aria-selected="false" aria-controls="panel-sources" data-insights-tab="sources">索引覆盖</button>
+        <button class="insight-tab" id="tab-sources" role="tab" aria-selected="false" aria-controls="panel-sources" data-insights-tab="sources">公共数据缓存</button>
       </nav>
 
       <section class="insight-tab-panel is-active" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" data-insights-panel="dashboard">
@@ -60,7 +60,7 @@
                 <div class="overview-card"><span>平均评分</span><strong>{{ insights.summary.averageRating }}</strong><small>10 分制</small></div>
                 <div class="overview-card"><span>评分中位数</span><strong>{{ insights.summary.medianRating }}</strong><small>{{ insights.summary.lowestRating }}-{{ insights.summary.highestRating }} 区间</small></div>
                 <div class="overview-card"><span>年份覆盖</span><strong>{{ insights.summary.seasonPercent }}%</strong><small>可参与年代分析</small></div>
-                <div class="overview-card overview-card-accent"><span>索引覆盖</span><strong>{{ insights.summary.sourcePercent }}%</strong><small>关联至少一个站点</small></div>
+                <div class="overview-card overview-card-accent"><span>公共缓存覆盖</span><strong>{{ insights.summary.publicCache.coveragePercent }}%</strong><small>{{ insights.summary.publicCache.cached }} / {{ insights.summary.total }} 部已缓存</small></div>
               </div>
             </article>
             <article class="carousel-slide" data-carousel-slide aria-label="收录窗口">
@@ -332,17 +332,27 @@
       <section class="insight-tab-panel" id="panel-sources" role="tabpanel" aria-labelledby="tab-sources" data-insights-panel="sources" hidden>
         <div class="insights-carousel" data-carousel>
           <div class="carousel-toolbar">
-            <div><p class="section-index">06 / INDEX</p><h3>索引覆盖</h3></div>
-            <div class="carousel-controls"><button type="button" class="carousel-button" data-carousel-prev aria-label="上一个索引视图">←</button><span data-carousel-status aria-live="polite">1 / 2</span><button type="button" class="carousel-button" data-carousel-next aria-label="下一个索引视图">→</button></div>
+            <div><p class="section-index">06 / CACHE</p><h3>公共数据缓存</h3></div>
+            <div class="carousel-controls"><button type="button" class="carousel-button" data-carousel-prev aria-label="上一个缓存视图">←</button><span data-carousel-status aria-live="polite">1 / 3</span><button type="button" class="carousel-button" data-carousel-next aria-label="下一个缓存视图">→</button></div>
           </div>
           <div class="carousel-viewport">
-            <article class="carousel-slide is-active" data-carousel-slide aria-label="站点索引">
+            <article class="carousel-slide is-active" data-carousel-slide aria-label="公共数据缓存">
+              <div class="cache-stat-grid">
+                <div class="cache-stat"><span>缓存覆盖</span><strong>{{ insights.summary.publicCache.coveragePercent }}%</strong><small>{{ insights.summary.publicCache.cached }} / {{ insights.summary.total }} 部关联缓存</small></div>
+                <div class="cache-stat"><span>公共评分</span><strong>{{ insights.summary.publicCache.scorePercent }}%</strong><small>{{ insights.summary.publicCache.scored }} 部有公共评分</small></div>
+                <div class="cache-stat"><span>公共标签</span><strong>{{ insights.summary.publicCache.tagPercent }}%</strong><small>{{ insights.summary.publicCache.tagged }} 部有公共标签</small></div>
+                <div class="cache-stat"><span>公共简介</span><strong>{{ insights.summary.publicCache.summaryPercent }}%</strong><small>{{ insights.summary.publicCache.summarized }} 部有公共简介</small></div>
+                <div class="cache-stat"><span>本机缓存条目</span><strong>{{ insights.summary.publicCache.fileEntries }}</strong><small>当前公共数据缓存总量</small></div>
+                <div class="cache-stat"><span>尚未覆盖</span><strong>{{ insights.summary.publicCache.missing }}</strong><small>可从全量获取补齐</small></div>
+              </div>
+            </article>
+            <article class="carousel-slide" data-carousel-slide aria-label="站点索引">
               {% if insights.sources.length %}
                 <div class="source-stack">{% for source in insights.sources %}<div class="source-row"><span>{{ source.label }}</span><span class="source-track"><span class="source-bar" style="--bar-size: {{ source.percent }}%"></span></span><strong>{{ source.count }}</strong></div>{% endfor %}</div>
               {% else %}<p class="panel-empty">还没有可统计的站点索引。</p>{% endif %}
               <div class="highlight-note"><span>外部索引覆盖</span><strong>{{ insights.summary.sourcePercent }}%</strong><small>季度信息覆盖 {{ insights.summary.seasonPercent }}%</small></div>
             </article>
-            <article class="carousel-slide" aria-label="最佳年代">
+            <article class="carousel-slide" data-carousel-slide aria-label="最佳年代">
               {% if insights.bestDecade %}<div class="best-era"><span>平均评分最高年代</span><strong>{{ insights.bestDecade.label }}</strong><em>{{ insights.bestDecade.averageRating }} / 10</em></div>{% endif %}
             </article>
           </div>

@@ -824,6 +824,29 @@ h2 {
   white-space: nowrap;
 }
 
+.catalog-index-progress {
+  min-height: 32px;
+  padding: 7px 10px 0;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.catalog-index-progress progress {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--accent);
+}
+
+.catalog-index-progress span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .catalog-source-settings {
   margin-top: 18px;
   border: 1px solid var(--line);
@@ -4383,6 +4406,10 @@ th:nth-child(4) {
     grid-template-columns: minmax(0, 1fr) repeat(3, 112px);
   }
 
+  .catalog-index-progress {
+    grid-template-columns: minmax(100px, 0.7fr) minmax(0, 1.3fr);
+  }
+
   .catalog-public-controls {
     grid-template-columns: minmax(160px, 1fr) minmax(150px, 1fr) minmax(130px, 0.8fr);
   }
@@ -4652,6 +4679,15 @@ th:nth-child(4) {
 
   .catalog-toolbar .search-field {
     grid-column: 1 / -1;
+  }
+
+  .catalog-index-progress {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .catalog-index-progress span {
+    white-space: normal;
   }
 
   .catalog-public-heading {

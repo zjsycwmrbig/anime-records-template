@@ -33,6 +33,11 @@ export class BrowserCatalogStore {
         }
         return;
       }
+      if (event.data.type === "progress") {
+        const pending = this.pending.get(event.data.requestId);
+        pending?.onProgress?.(event.data.payload);
+        return;
+      }
       const requestId = event.data?.requestId;
       const pending = this.pending.get(requestId);
       if (!pending) {
@@ -58,7 +63,7 @@ export class BrowserCatalogStore {
     return this.worker;
   }
 
-  request(type, options = {}, timeoutMs = 120000) {
+  request(type, options = {}, timeoutMs = 120000, onProgress = null) {
     const worker = this.ensureWorker();
     const requestId = ++this.sequence;
     return new Promise((resolve, reject) => {
@@ -66,7 +71,7 @@ export class BrowserCatalogStore {
         this.pending.delete(requestId);
         reject(new Error("全量索引处理超时，请检查网络后重试"));
       }, timeoutMs);
-      this.pending.set(requestId, { resolve, reject, timer });
+      this.pending.set(requestId, { resolve, reject, timer, onProgress });
       worker.postMessage({ type, requestId, options });
     });
   }
@@ -92,5 +97,13 @@ export class BrowserCatalogStore {
   async getItem(itemId) {
     const items = await this.getItems([itemId]);
     return items[0] ?? null;
+  }
+
+  async getBangumiItems() {
+    return this.request("getBangumiItems", {}, 120000);
+  }
+
+  async replace(options = {}) {
+    return this.request("replace", {}, 180000, options.onProgress);
   }
 }
