@@ -134,13 +134,25 @@
       continue;
     }
 
-    const axes = legendRows.map((row, index) => ({
-      index,
-      label: row.dataset.tagLabel || row.textContent.trim() || `标签 ${index + 1}`,
-      count: Math.max(0, Number(row.dataset.tagCount) || 0),
-      percent: Math.max(0, Math.min(100, Number(row.dataset.tagPercent) || 0)),
-      row,
-    }));
+    const axes = legendRows
+      .map((row, rowIndex) => ({
+        index: Math.max(0, Number(row.dataset.tagIndex) || rowIndex),
+        label:
+          row.dataset.tagLabel ||
+          row.textContent.trim() ||
+          `标签 ${rowIndex + 1}`,
+        count: Math.max(0, Number(row.dataset.tagCount) || 0),
+        percent: Math.max(
+          0,
+          Math.min(100, Number(row.dataset.tagPercent) || 0),
+        ),
+        row,
+      }))
+      .sort((left, right) => left.index - right.index)
+      .map((axis, index) => ({
+        ...axis,
+        index,
+      }));
     const width = 560;
     const height = 430;
     const centerX = width / 2;

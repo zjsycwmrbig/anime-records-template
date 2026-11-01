@@ -589,9 +589,12 @@
     const axes = (Array.isArray(radar.axes) ? radar.axes : [])
       .filter((axis) => clean(axis?.label))
       .slice(0, 12);
+    const rankedAxes = (Array.isArray(radar.ranking) ? radar.ranking : axes)
+      .filter((axis) => clean(axis?.label))
+      .slice(0, 12);
     if (!radar.available || axes.length < 3) {
       return `<text x="${x}" y="${y + 24}" fill="${palette.muted}" font-family="${FONT_STACK}" font-size="16">建立至少 3 个公共标签轴后，这里会显示标签偏好雷达图。</text>
-        <text x="${x}" y="${y + 52}" fill="${palette.muted}" font-family="${FONT_STACK}" font-size="13">当前可用轴 ${axes.length} 个 · 标签缓存覆盖 ${Number(radar.coverage?.percent) || 0}%</text>`;
+        <text x="${x}" y="${y + 52}" fill="${palette.muted}" font-family="${FONT_STACK}" font-size="13">当前可用轴 ${axes.length} 个 · 至少需要 3 个可统计标签</text>`;
     }
 
     const compact = width < 900;
@@ -665,7 +668,7 @@
     const legendWidth = Math.max(120, width - (legendX - x) - 8);
     const rowHeight = compact ? 23 : 27;
     const maximumRows = Math.max(3, Math.floor((height - 22) / rowHeight));
-    const visibleAxes = axes.slice(0, maximumRows);
+    const visibleAxes = rankedAxes.slice(0, maximumRows);
     const legend = visibleAxes
       .map((axis, index) => {
         const rowY = y + 15 + index * rowHeight;
@@ -689,10 +692,8 @@
       })
       .join("");
     const topTag = clean(radar.topTag?.label) || clean(axes[0].label);
-    const coverage = Number(radar.coverage?.percent) || 0;
-
     return `<text x="${legendX}" y="${y + height - 29}" fill="${palette.accentDark}" font-family="${FONT_STACK}" font-size="${compact ? 10 : 12}" font-weight="800">TOP · ${escapeXml(topTag)}</text>
-      <text x="${legendX + legendWidth}" y="${y + height - 29}" text-anchor="end" fill="${palette.muted}" font-family="${FONT_STACK}" font-size="${compact ? 10 : 12}">标签缓存覆盖 ${coverage}%</text>
+      <text x="${legendX + legendWidth}" y="${y + height - 29}" text-anchor="end" fill="${palette.muted}" font-family="${FONT_STACK}" font-size="${compact ? 10 : 12}">按出现作品数排序</text>
       ${rings}${spokes}${labels}
       <polygon points="${polygon((axis) => Math.max(0, Math.min(100, Number(axis.percent) || 0)) / 100)}" fill="${palette.accent}" fill-opacity=".2" stroke="${palette.accent}" stroke-width="2.5" stroke-linejoin="round" />
       ${points}${legend}`;

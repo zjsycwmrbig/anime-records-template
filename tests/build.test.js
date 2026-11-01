@@ -524,7 +524,11 @@ test("renders an available tag radar when cached tags provide enough axes", asyn
     assert.match(insightsHtml, /id="tab-tags"/u);
     assert.match(insightsHtml, /id="panel-tags"/u);
     assert.match(insightsHtml, /data-tag-radar-svg/u);
-    assert.match(insightsHtml, /标签缓存覆盖/u);
+    assert.match(insightsHtml, /收录热力图/u);
+    assert.match(insightsHtml, /近 7 天新增/u);
+    assert.match(insightsHtml, /按年代拆分/u);
+    assert.match(insightsHtml, /按标签拆分/u);
+    assert.doesNotMatch(insightsHtml, /标签缓存覆盖/u);
     assert.match(insightsHtml, /奇幻/u);
     assert.match(insightsHtml, /科幻/u);
     assert.match(insightsHtml, /悬疑/u);

@@ -79,10 +79,39 @@
         <div class="insights-carousel" data-carousel>
           <div class="carousel-toolbar">
             <div><p class="section-index">02 / RHYTHM</p><h3>收录趋势</h3></div>
-            <div class="carousel-controls"><button type="button" class="carousel-button" data-carousel-prev aria-label="上一个趋势视图">←</button><span data-carousel-status aria-live="polite">1 / 3</span><button type="button" class="carousel-button" data-carousel-next aria-label="下一个趋势视图">→</button></div>
+            <div class="carousel-controls"><button type="button" class="carousel-button" data-carousel-prev aria-label="上一个趋势视图">←</button><span data-carousel-status aria-live="polite">1 / 4</span><button type="button" class="carousel-button" data-carousel-next aria-label="下一个趋势视图">→</button></div>
           </div>
           <div class="carousel-viewport">
-            <article class="carousel-slide is-active" data-carousel-slide aria-label="本月每日收录">
+            <article class="carousel-slide is-active" data-carousel-slide aria-label="年度收录日历热力图">
+              <div class="slide-heading activity-heading">
+                <div><strong>收录热力图</strong><span>{{ insights.activity.startLabel }} 至 {{ insights.activity.endLabel }} · 按记录创建日期统计</span></div>
+                <div class="activity-week-stat"><span>近 7 天新增</span><strong>{{ insights.activity.lastWeekCount }}</strong><small>部作品</small></div>
+              </div>
+              <div class="activity-calendar" style="--activity-weeks: {{ insights.activity.weeks.length }}" role="img" aria-label="过去五十三周每日收录热力图">
+                <div class="activity-month-row">
+                  {% for month in insights.activity.monthLabels %}
+                    <span style="grid-column: {{ month.weekIndex + 1 }}">{{ month.label }}</span>
+                  {% endfor %}
+                </div>
+                <div class="activity-calendar-body">
+                  <div class="activity-weekdays" aria-hidden="true">
+                    <span>一</span><span>三</span><span>五</span>
+                  </div>
+                  <div class="activity-grid">
+                    {% for week in insights.activity.weeks %}
+                      {% for day in week.days %}
+                        <span class="activity-day level-{{ day.level }}{% if day.future %} is-future{% endif %}" title="{{ day.label }}" aria-label="{{ day.label }}"></span>
+                      {% endfor %}
+                    {% endfor %}
+                  </div>
+                </div>
+                <div class="activity-footer">
+                  <span>过去一年共新增 {{ insights.activity.total }} 部</span>
+                  <div class="activity-scale" aria-label="热力图颜色图例"><span>少</span>{% for level in [0, 1, 2, 3, 4] %}<i class="level-{{ level }}"></i>{% endfor %}<span>多</span></div>
+                </div>
+              </div>
+            </article>
+            <article class="carousel-slide" data-carousel-slide aria-label="本月每日收录">
               <div class="slide-heading"><strong>本月每日收录</strong><span>按记录创建日期统计</span></div>
               <div class="chart-scroll">
                 <div class="month-chart day-chart" style="--chart-columns: {{ insights.days.length }}" role="img" aria-label="本月每日新增收录柱状图">
@@ -167,7 +196,7 @@
         <div class="insights-carousel" data-carousel>
           <div class="carousel-toolbar">
             <div><p class="section-index">04 / SCORE</p><h3>评分分布</h3></div>
-            <div class="carousel-controls"><button type="button" class="carousel-button" data-carousel-prev aria-label="上一个评分视图">←</button><span data-carousel-status aria-live="polite">1 / 3</span><button type="button" class="carousel-button" data-carousel-next aria-label="下一个评分视图">→</button></div>
+            <div class="carousel-controls"><button type="button" class="carousel-button" data-carousel-prev aria-label="上一个评分视图">←</button><span data-carousel-status aria-live="polite">1 / 5</span><button type="button" class="carousel-button" data-carousel-next aria-label="下一个评分视图">→</button></div>
           </div>
           <div class="carousel-viewport">
             <article class="carousel-slide is-active" data-carousel-slide aria-label="评分区间扇状图">
@@ -199,6 +228,54 @@
                 {% endfor %}
               </div>
             </article>
+            <article class="carousel-slide" data-carousel-slide aria-label="按年代拆分评分">
+              <div class="slide-heading"><strong>按年代拆分</strong><span>每个年代的评分构成与平均分</span></div>
+              {% if insights.ratingByDecade.length %}
+                <div class="rating-breakdown-list">
+                  {% for group in insights.ratingByDecade %}
+                    <section class="rating-breakdown-row">
+                      <header><div><strong>{{ group.label }}</strong><small>{{ group.rated }} 部已评分 · {{ group.count }} 部收录</small></div><em>{{ group.averageRating }}</em></header>
+                      <div class="rating-breakdown-track" aria-label="{{ group.label }}评分构成">
+                        {% for bucket in group.buckets %}
+                          {% if bucket.count %}<span class="rating-breakdown-segment is-{{ bucket.className }}" style="--segment-size: {{ bucket.percent }}%" title="{{ bucket.label }}：{{ bucket.count }} 部"></span>{% endif %}
+                        {% endfor %}
+                      </div>
+                      <div class="rating-breakdown-legend">
+                        {% for bucket in group.buckets %}
+                          {% if bucket.count %}<span><i class="is-{{ bucket.className }}"></i>{{ bucket.shortLabel }} · {{ bucket.count }}</span>{% endif %}
+                        {% endfor %}
+                      </div>
+                    </section>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="panel-empty">当前没有可用于年代拆分的评分记录。</p>
+              {% endif %}
+            </article>
+            <article class="carousel-slide" data-carousel-slide aria-label="按标签拆分评分">
+              <div class="slide-heading"><strong>按标签拆分</strong><span>按已评分作品数排序，最多展示 12 个标签</span></div>
+              {% if insights.ratingByTag.length %}
+                <div class="rating-breakdown-list rating-breakdown-tags">
+                  {% for group in insights.ratingByTag %}
+                    <section class="rating-breakdown-row">
+                      <header><div><strong>{{ group.label }}</strong><small>{{ group.rated }} 部已评分 · {{ group.count }} 部带此标签</small></div><em>{{ group.averageRating }}</em></header>
+                      <div class="rating-breakdown-track" aria-label="{{ group.label }}评分构成">
+                        {% for bucket in group.buckets %}
+                          {% if bucket.count %}<span class="rating-breakdown-segment is-{{ bucket.className }}" style="--segment-size: {{ bucket.percent }}%" title="{{ bucket.label }}：{{ bucket.count }} 部"></span>{% endif %}
+                        {% endfor %}
+                      </div>
+                      <div class="rating-breakdown-legend">
+                        {% for bucket in group.buckets %}
+                          {% if bucket.count %}<span><i class="is-{{ bucket.className }}"></i>{{ bucket.shortLabel }} · {{ bucket.count }}</span>{% endif %}
+                        {% endfor %}
+                      </div>
+                    </section>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="panel-empty">当前没有可用于标签拆分的评分记录。</p>
+              {% endif %}
+            </article>
           </div>
         </div>
       </section>
@@ -223,14 +300,10 @@
                       <strong>{{ insights.tagRadar.topTag.label }}</strong>
                       <small>出现在 {{ insights.tagRadar.topTag.count }} 部有标签的作品中</small>
                     </div>
-                    <div class="tag-radar-coverage">
-                      <div><span>标签缓存覆盖</span><strong>{{ insights.tagRadar.coverage.percent }}%</strong></div>
-                      <div class="tag-radar-coverage-track"><span style="--coverage-size: {{ insights.tagRadar.coverage.percent }}%"></span></div>
-                      <small>{{ insights.tagRadar.coverage.tagged }} / {{ insights.tagRadar.coverage.total }} 部作品有可用公共标签</small>
-                    </div>
+                    <div class="tag-radar-ranking-title"><span>标签排行</span><small>按出现作品数排序</small></div>
                     <div class="tag-radar-legend" aria-label="标签偏好图例">
-                      {% for axis in insights.tagRadar.axes %}
-                        <div tabindex="0" data-tag-radar-legend data-tag-index="{{ loop.index0 }}" data-tag-label="{{ axis.label }}" data-tag-count="{{ axis.count }}" data-tag-percent="{{ axis.percent }}"><span>{{ axis.label }}</span><span class="tag-radar-legend-track"><i style="--tag-size: {{ axis.percent }}%"></i></span><strong>{{ axis.count }}</strong></div>
+                      {% for axis in insights.tagRadar.ranking %}
+                        <div tabindex="0" data-tag-radar-legend data-tag-index="{{ axis.index }}" data-tag-label="{{ axis.label }}" data-tag-count="{{ axis.count }}" data-tag-percent="{{ axis.percent }}"><span>{{ axis.label }}</span><span class="tag-radar-legend-track"><i style="--tag-size: {{ axis.percent }}%"></i></span><strong>{{ axis.count }}</strong></div>
                       {% endfor %}
                     </div>
                   </div>

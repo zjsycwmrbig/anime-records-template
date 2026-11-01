@@ -103,6 +103,19 @@ function createTagNormalizer(aliasGroups, excludedTags) {
   };
 }
 
+function normalizedRecordTags(record, normalizeTag) {
+  const tags = new Map();
+  for (const value of Array.isArray(record.publicTags) ? record.publicTags : []) {
+    const normalized = normalizeTag(
+      value && typeof value === "object" ? value.name : value,
+    );
+    if (normalized && !tags.has(normalized.key)) {
+      tags.set(normalized.key, normalized);
+    }
+  }
+  return [...tags.values()];
+}
+
 export function calculateTagRadar(records, siteConfig) {
   const config = normalizeTagRadarConfig(siteConfig?.insights?.tagRadar);
   const normalizeTag = createTagNormalizer(
@@ -113,17 +126,8 @@ export function calculateTagRadar(records, siteConfig) {
   let tagged = 0;
 
   for (const record of records) {
-    const recordTags = new Set();
-    for (const value of Array.isArray(record.publicTags)
-      ? record.publicTags
-      : []) {
-      const normalized = normalizeTag(
-        value && typeof value === "object" ? value.name : value,
-      );
-      if (!normalized || recordTags.has(normalized.key)) {
-        continue;
-      }
-      recordTags.add(normalized.key);
+    const recordTags = normalizedRecordTags(record, normalizeTag);
+    for (const normalized of recordTags) {
       const entry = counts.get(normalized.key) ?? {
         key: normalized.key,
         label: normalized.label,
@@ -132,7 +136,7 @@ export function calculateTagRadar(records, siteConfig) {
       entry.count += 1;
       counts.set(normalized.key, entry);
     }
-    if (recordTags.size) {
+    if (recordTags.length) {
       tagged += 1;
     }
   }
@@ -156,11 +160,22 @@ export function calculateTagRadar(records, siteConfig) {
           .slice(0, config.maxAxes)
       : ranked.slice(0, config.maxAxes);
   const maximum = Math.max(1, ...selected.map((tag) => tag.count));
-  const axes = selected.map((tag) => ({
+  const axes = selected.map((tag, index) => ({
+    index,
     ...tag,
     value: tag.count,
     percent: percent(tag.count, maximum),
   }));
+  const ranking = [...axes]
+    .sort(
+      (left, right) =>
+        right.count - left.count ||
+        left.label.localeCompare(right.label, "zh-CN"),
+    )
+    .map((axis, index) => ({
+      ...axis,
+      rank: index + 1,
+    }));
   const total = records.length;
   const coverage = {
     tagged,
@@ -174,6 +189,7 @@ export function calculateTagRadar(records, siteConfig) {
     mode: config.mode,
     maxAxes: config.maxAxes,
     axes,
+    ranking,
     coverage,
     topTag: ranked[0] ?? null,
     excludedTags: config.excludedTags,
@@ -275,6 +291,82 @@ function weekSeries(records, now) {
   return withBarPercent(weeks);
 }
 
+function activityCalendar(records, now) {
+  const day = 24 * 60 * 60 * 1000;
+  const today = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+  const weekEnd = today + (6 - new Date(today).getUTCDay()) * day;
+  const weekCount = 53;
+  const start = weekEnd - (weekCount * 7 - 1) * day;
+  const counts = new Map();
+  for (const record of records) {
+    const created = new Date(record.createdAt);
+    if (!Number.isNaN(created.getTime())) {
+      const key = dayKey(created);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  const startKey = dayKey(new Date(start));
+  const todayKey = dayKey(new Date(today));
+  const visibleCounts = [...counts.entries()]
+    .filter(([key]) => key >= startKey && key <= todayKey)
+    .map(([, count]) => count);
+  const maximum = Math.max(0, ...visibleCounts);
+  const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
+  const weeks = [];
+  const monthLabels = [];
+  let lastMonth = null;
+
+  for (let weekIndex = 0; weekIndex < weekCount; weekIndex += 1) {
+    const days = [];
+    for (let weekday = 0; weekday < 7; weekday += 1) {
+      const timestamp = start + (weekIndex * 7 + weekday) * day;
+      const date = new Date(timestamp);
+      const key = dayKey(date);
+      const future = timestamp > today;
+      const count = future ? 0 : counts.get(key) ?? 0;
+      const level =
+        count === 0
+          ? 0
+          : maximum <= 1
+            ? 4
+            : Math.max(1, Math.ceil((count / maximum) * 4));
+      days.push({
+        key,
+        label: `${date.getUTCFullYear()}.${date.getUTCMonth() + 1}.${date.getUTCDate()} 周${weekdayLabels[weekday]} · ${count} 部`,
+        count,
+        level,
+        future,
+      });
+    }
+    weeks.push({
+      key: days[0].key,
+      days,
+    });
+    const month = new Date(start + weekIndex * 7 * day).getUTCMonth();
+    if (month !== lastMonth) {
+      monthLabels.push({
+        weekIndex,
+        label: `${month + 1}月`,
+      });
+      lastMonth = month;
+    }
+  }
+
+  return {
+    weeks,
+    monthLabels,
+    maximum,
+    total: visibleCounts.reduce((sum, count) => sum + count, 0),
+    lastWeekCount: windowCount(records, now, 7),
+    startLabel: `${new Date(start).getUTCFullYear()}.${new Date(start).getUTCMonth() + 1}.${new Date(start).getUTCDate()}`,
+    endLabel: `${now.getUTCFullYear()}.${now.getUTCMonth() + 1}.${now.getUTCDate()}`,
+  };
+}
+
 function windowCount(records, now, days) {
   const end = now.getTime();
   const start = end - days * 24 * 60 * 60 * 1000;
@@ -319,6 +411,44 @@ const PIE_COLORS = [
   "#7d8792",
 ];
 
+const RATING_BUCKET_DEFINITIONS = [
+  {
+    key: "0-5.9",
+    label: "0 - 5.9",
+    shortLabel: "0-5.9",
+    className: "low",
+    test: (rating) => rating < 6,
+  },
+  {
+    key: "6-6.9",
+    label: "6 - 6.9",
+    shortLabel: "6-6.9",
+    className: "lower-mid",
+    test: (rating) => rating >= 6 && rating < 7,
+  },
+  {
+    key: "7-7.9",
+    label: "7 - 7.9",
+    shortLabel: "7-7.9",
+    className: "mid",
+    test: (rating) => rating >= 7 && rating < 8,
+  },
+  {
+    key: "8-8.9",
+    label: "8 - 8.9",
+    shortLabel: "8-8.9",
+    className: "high",
+    test: (rating) => rating >= 8 && rating < 9,
+  },
+  {
+    key: "9-10",
+    label: "9 - 10",
+    shortLabel: "9-10",
+    className: "top",
+    test: (rating) => rating >= 9,
+  },
+];
+
 function withPieSegments(items) {
   let offset = 0;
   return items
@@ -335,7 +465,70 @@ function withPieSegments(items) {
             ? "#aeb6b0"
             : PIE_COLORS[index % PIE_COLORS.length],
       };
-    });
+  });
+}
+
+function summarizeRatingBreakdown(groups) {
+  return groups.map((group) => {
+    const rated = group.ratings.length;
+    return {
+      key: group.key,
+      label: group.label,
+      count: group.count,
+      rated,
+      unrated: group.count - rated,
+      ratedPercent: percent(rated, group.count),
+      averageRating: average(group.ratings) ?? "—",
+      buckets: RATING_BUCKET_DEFINITIONS.map((bucket) => {
+        const count = group.ratings.filter(bucket.test).length;
+        return {
+          key: bucket.key,
+          label: bucket.label,
+          shortLabel: bucket.shortLabel,
+          className: bucket.className,
+          count,
+          percent: percent(count, rated),
+        };
+      }),
+    };
+  });
+}
+
+function ratingBreakdownByTags(records, siteConfig) {
+  const config = normalizeTagRadarConfig(siteConfig?.insights?.tagRadar);
+  const normalizeTag = createTagNormalizer(
+    config.aliasGroups,
+    config.excludedTags,
+  );
+  const groups = new Map();
+  for (const record of records) {
+    const rating = Number(record.rating);
+    const tags = normalizedRecordTags(record, normalizeTag);
+    for (const tag of tags) {
+      const group = groups.get(tag.key) ?? {
+        key: tag.key,
+        label: tag.label,
+        count: 0,
+        ratings: [],
+      };
+      group.count += 1;
+      if (record.rating !== null && Number.isFinite(rating)) {
+        group.ratings.push(rating);
+      }
+      groups.set(tag.key, group);
+    }
+  }
+  return summarizeRatingBreakdown(
+    [...groups.values()]
+      .filter((group) => group.ratings.length > 0)
+      .sort(
+        (left, right) =>
+          right.ratings.length - left.ratings.length ||
+          right.count - left.count ||
+          left.label.localeCompare(right.label, "zh-CN"),
+      )
+      .slice(0, 12),
+  );
 }
 
 export function calculateInsights(records, now = new Date(), siteConfig = {}) {
@@ -377,17 +570,13 @@ export function calculateInsights(records, now = new Date(), siteConfig = {}) {
       averageRating: average(group.ratings) ?? "—",
     }));
 
-  const ratingBuckets = [
-    { key: "0-5.9", label: "0 - 5.9", test: (rating) => rating < 6 },
-    { key: "6-6.9", label: "6 - 6.9", test: (rating) => rating >= 6 && rating < 7 },
-    { key: "7-7.9", label: "7 - 7.9", test: (rating) => rating >= 7 && rating < 8 },
-    { key: "8-8.9", label: "8 - 8.9", test: (rating) => rating >= 8 && rating < 9 },
-    { key: "9-10", label: "9 - 10", test: (rating) => rating >= 9 },
-  ].map((bucket) => {
+  const ratingBuckets = RATING_BUCKET_DEFINITIONS.map((bucket) => {
     const count = ratings.filter(bucket.test).length;
     return {
       key: bucket.key,
       label: bucket.label,
+      shortLabel: bucket.shortLabel,
+      className: bucket.className,
       count,
       percent: percent(count, total),
     };
@@ -455,7 +644,21 @@ export function calculateInsights(records, now = new Date(), siteConfig = {}) {
   const months = monthSeries(records, now);
   const days = currentMonthSeries(records, now);
   const weeks = weekSeries(records, now);
+  const activity = activityCalendar(records, now);
   const tagRadar = calculateTagRadar(records, siteConfig);
+  const ratingByDecade = summarizeRatingBreakdown(
+    [...decadesMap.values()]
+      .filter((group) => group.ratings.length > 0)
+      .sort((left, right) => {
+        if (left.key === null) return 1;
+        if (right.key === null) return -1;
+        return left.key - right.key;
+      })
+      .map((group) => ({
+        ...group,
+        label: group.key === null ? "年份未知" : `${group.key} 年代`,
+      })),
+  );
 
   return {
     summary: {
@@ -474,6 +677,7 @@ export function calculateInsights(records, now = new Date(), siteConfig = {}) {
       seasonPercent: percent(seasonCount, total),
       sourcePercent: percent(sourcedCount, total),
       latestMonth: months.at(-1).count,
+      latestWeek: activity.lastWeekCount,
     },
     windows: [
       { days: 7, label: "近 7 天", count: windowCount(records, now, 7) },
@@ -482,11 +686,14 @@ export function calculateInsights(records, now = new Date(), siteConfig = {}) {
     ],
     days,
     weeks,
+    activity,
     months,
     decades,
     years,
     ratings: ratingBuckets,
     ratingFine,
+    ratingByDecade,
+    ratingByTag: ratingBreakdownByTags(records, siteConfig),
     pieSegments,
     decadePieSegments,
     ratingPieSegments,

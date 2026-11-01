@@ -993,49 +993,6 @@
   line-height: 1.15;
 }
 
-.tag-radar-coverage {
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.tag-radar-coverage > div:first-child {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.tag-radar-coverage span,
-.tag-radar-coverage small {
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.tag-radar-coverage strong {
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.tag-radar-coverage-track {
-  height: 5px;
-  margin: 10px 0 8px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--paper);
-}
-
-.tag-radar-coverage-track span {
-  display: block;
-  width: var(--coverage-size);
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
-}
-
 .tag-radar-legend {
   display: grid;
   gap: 2px;
@@ -1427,6 +1384,335 @@
   color: var(--muted);
   font-size: 10px;
 }
+
+.activity-heading {
+  align-items: center;
+}
+
+.activity-heading > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.activity-heading > div:first-child span {
+  font-size: 10px;
+}
+
+.activity-week-stat {
+  display: grid;
+  min-width: 128px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  align-items: baseline;
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+
+.activity-week-stat span,
+.activity-week-stat small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.activity-week-stat strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-week-stat small {
+  grid-column: 1;
+}
+
+.activity-calendar {
+  --activity-cell-size: 11px;
+  --activity-gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 16px 0 2px;
+}
+
+.activity-month-row {
+  display: grid;
+  min-width: calc(var(--activity-weeks) * (var(--activity-cell-size) + var(--activity-gap)));
+  grid-template-columns: repeat(var(--activity-weeks), minmax(0, 1fr));
+  height: 18px;
+  margin-left: 32px;
+  color: var(--muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-month-row span {
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.activity-calendar-body {
+  display: flex;
+  min-width: calc(32px + var(--activity-weeks) * (var(--activity-cell-size) + var(--activity-gap)));
+  gap: 8px;
+}
+
+.activity-weekdays {
+  display: grid;
+  width: 24px;
+  flex: 0 0 24px;
+  grid-template-rows: repeat(7, var(--activity-cell-size));
+  gap: var(--activity-gap);
+  color: var(--muted);
+  font-size: 9px;
+  line-height: var(--activity-cell-size);
+  text-align: right;
+}
+
+.activity-weekdays span:nth-child(1) {
+  grid-row: 2;
+}
+
+.activity-weekdays span:nth-child(2) {
+  grid-row: 4;
+}
+
+.activity-weekdays span:nth-child(3) {
+  grid-row: 6;
+}
+
+.activity-grid {
+  display: grid;
+  min-width: calc(var(--activity-weeks) * (var(--activity-cell-size) + var(--activity-gap)));
+  flex: 1 0 auto;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, var(--activity-cell-size));
+  grid-template-columns: repeat(var(--activity-weeks), var(--activity-cell-size));
+  gap: var(--activity-gap);
+}
+
+.activity-day {
+  display: block;
+  width: var(--activity-cell-size);
+  height: var(--activity-cell-size);
+  border-radius: 2px;
+  background: var(--line);
+  box-shadow: inset 0 0 0 1px rgb(23 32 27 / 4%);
+}
+
+.activity-day.level-0 {
+  background: color-mix(in srgb, var(--line) 68%, var(--surface));
+}
+
+.activity-day.level-1 {
+  background: color-mix(in srgb, var(--teal) 25%, var(--surface));
+}
+
+.activity-day.level-2 {
+  background: color-mix(in srgb, var(--teal) 48%, var(--surface));
+}
+
+.activity-day.level-3 {
+  background: color-mix(in srgb, var(--teal) 72%, var(--surface));
+}
+
+.activity-day.level-4 {
+  background: var(--teal);
+}
+
+.activity-day.is-future {
+  opacity: 0.32;
+}
+
+.activity-day:hover,
+.activity-day:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.activity-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.activity-scale {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.activity-scale i {
+  display: block;
+  width: var(--activity-cell-size);
+  height: var(--activity-cell-size);
+  border-radius: 2px;
+}
+
+.activity-scale .level-0 {
+  background: color-mix(in srgb, var(--line) 68%, var(--surface));
+}
+
+.activity-scale .level-1 {
+  background: color-mix(in srgb, var(--teal) 25%, var(--surface));
+}
+
+.activity-scale .level-2 {
+  background: color-mix(in srgb, var(--teal) 48%, var(--surface));
+}
+
+.activity-scale .level-3 {
+  background: color-mix(in srgb, var(--teal) 72%, var(--surface));
+}
+
+.activity-scale .level-4 {
+  background: var(--teal);
+}
+
+.rating-breakdown-list {
+  display: grid;
+  max-height: 360px;
+  gap: 18px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.rating-breakdown-row {
+  min-width: 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rating-breakdown-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.rating-breakdown-row header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 9px;
+}
+
+.rating-breakdown-row header > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.rating-breakdown-row header strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rating-breakdown-row header small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.rating-breakdown-row header em {
+  flex: 0 0 auto;
+  color: var(--accent-dark);
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-style: normal;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rating-breakdown-track {
+  display: flex;
+  min-width: 0;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--paper);
+}
+
+.rating-breakdown-segment {
+  display: block;
+  width: var(--segment-size);
+  min-width: 2px;
+  height: 100%;
+}
+
+.rating-breakdown-segment.is-low,
+.rating-breakdown-legend i.is-low {
+  background: var(--accent);
+}
+
+.rating-breakdown-segment.is-lower-mid,
+.rating-breakdown-legend i.is-lower-mid {
+  background: #d68b46;
+}
+
+.rating-breakdown-segment.is-mid,
+.rating-breakdown-legend i.is-mid {
+  background: var(--gold);
+}
+
+.rating-breakdown-segment.is-high,
+.rating-breakdown-legend i.is-high {
+  background: var(--teal);
+}
+
+.rating-breakdown-segment.is-top,
+.rating-breakdown-legend i.is-top {
+  background: #175b58;
+}
+
+.rating-breakdown-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rating-breakdown-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rating-breakdown-legend i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.tag-radar-ranking-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tag-radar-ranking-title span {
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.tag-radar-ranking-title small {
+  color: var(--muted);
+  font-size: 9px;
+}
 .compact-distribution {
   max-width: 760px;
 }
@@ -1598,6 +1884,33 @@
   .compare-page-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .activity-heading {
+    gap: 16px;
+  }
+
+  .activity-week-stat {
+    width: 100%;
+    padding-top: 10px;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .activity-calendar {
+    --activity-cell-size: 10px;
+    --activity-gap: 3px;
+  }
+
+  .activity-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .rating-breakdown-list {
+    max-height: 420px;
   }
   .carousel-viewport {
     padding: 18px;

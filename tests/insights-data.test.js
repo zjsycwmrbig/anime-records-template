@@ -99,6 +99,11 @@ test("calculates collection windows, decades, and rating distributions", () => {
     insights.weeks.reduce((total, week) => total + week.count, 0),
     2,
   );
+  assert.equal(insights.activity.weeks.length, 53);
+  assert.equal(insights.activity.weeks[0].days.length, 7);
+  assert.equal(insights.activity.lastWeekCount, 1);
+  assert.equal(insights.summary.latestWeek, 1);
+  assert.equal(insights.activity.total, 3);
   assert.deepEqual(
     insights.decades.map((decade) => [decade.key, decade.count]),
     [
@@ -150,6 +155,18 @@ test("calculates collection windows, decades, and rating distributions", () => {
       0,
     ),
     4,
+  );
+  assert.deepEqual(
+    insights.ratingByDecade.map((group) => [
+      group.label,
+      group.count,
+      group.rated,
+      group.averageRating,
+    ]),
+    [
+      ["2010 年代", 1, 1, 6],
+      ["2020 年代", 2, 2, 8.5],
+    ],
   );
 });
 
@@ -222,9 +239,73 @@ test("builds automatic tag radar axes from normalized cached tags", () => {
     percent: 83.3,
   });
   assert.equal(insights.tagRadar.axes[0].percent, 100);
+  assert.deepEqual(
+    insights.tagRadar.ranking.map((axis) => axis.count),
+    [4, 2, 2],
+  );
+  assert.equal(insights.tagRadar.ranking[0].label, "科幻");
   assert.equal(
     insights.tagRadar.axes.some((axis) => axis.label === "短片"),
     false,
+  );
+});
+
+test("splits rated works by normalized tags", () => {
+  const insights = calculateInsights(
+    [
+      record({
+        id: "tag-a",
+        rating: 9,
+        publicTags: ["科幻", "漫改"],
+      }),
+      record({
+        id: "tag-b",
+        rating: 7,
+        publicTags: ["科幻", "漫画改"],
+      }),
+      record({
+        id: "tag-c",
+        rating: 6,
+        publicTags: ["奇幻"],
+      }),
+      record({
+        id: "tag-d",
+        publicTags: ["科幻"],
+      }),
+    ],
+    new Date("2026-10-25T12:00:00.000Z"),
+    {
+      insights: {
+        tagRadar: {
+          enabled: true,
+          mode: "auto",
+          aliasGroups: [["漫改", "漫画改"]],
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(
+    insights.ratingByTag.map((group) => [
+      group.label,
+      group.count,
+      group.rated,
+      group.averageRating,
+    ]),
+    [
+      ["科幻", 3, 2, 8],
+      ["漫画改", 2, 2, 8],
+      ["奇幻", 1, 1, 6],
+    ],
+  );
+  assert.deepEqual(
+    insights.ratingByTag[0].buckets
+      .filter((bucket) => bucket.count)
+      .map((bucket) => [bucket.key, bucket.count]),
+    [
+      ["7-7.9", 1],
+      ["9-10", 1],
+    ],
   );
 });
 
