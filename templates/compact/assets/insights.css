@@ -1109,6 +1109,116 @@
   font-weight: 600;
 }
 
+.tag-rating-deviation-list {
+  display: grid;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.tag-rating-deviation-row {
+  display: grid;
+  gap: 10px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.tag-rating-deviation-row:last-child {
+  border-bottom: 0;
+}
+
+.tag-rating-deviation-row header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tag-rating-deviation-row header > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.tag-rating-deviation-row header strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-rating-deviation-row header small,
+.tag-rating-deviation-values span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.tag-rating-deviation-row header em {
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.tag-rating-deviation-row header em.is-positive,
+.tag-rating-deviation-values strong.is-positive {
+  color: var(--teal);
+}
+
+.tag-rating-deviation-row header em.is-negative,
+.tag-rating-deviation-values strong.is-negative {
+  color: var(--accent);
+}
+
+.tag-rating-deviation-row header em.is-even,
+.tag-rating-deviation-row header em.is-neutral,
+.tag-rating-deviation-values strong.is-even,
+.tag-rating-deviation-values strong.is-neutral {
+  color: var(--muted);
+}
+
+.tag-rating-deviation-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tag-rating-deviation-values > div {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--paper);
+}
+
+.tag-rating-deviation-values strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tag-rating-deviation-bars {
+  display: grid;
+  gap: 5px;
+}
+
+.tag-rating-deviation-bar {
+  display: block;
+  width: var(--rating-size);
+  min-width: 2px;
+  height: 6px;
+  border-radius: 3px;
+}
+
+.tag-rating-deviation-bar.is-personal {
+  background: var(--accent);
+}
+
+.tag-rating-deviation-bar.is-public {
+  background: var(--teal);
+}
+
 @media (max-width: 980px) {
   .insights-hero {
     grid-template-columns: 1fr;
@@ -1410,6 +1520,29 @@
 .slide-heading span {
   color: var(--muted);
   font-size: 10px;
+}
+.slide-heading-with-control {
+  align-items: center;
+}
+
+.insight-inline-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.insight-inline-sort select {
+  min-height: 30px;
+  padding: 0 28px 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
 }
 
 .activity-heading {
@@ -1948,6 +2081,9 @@
   .rating-breakdown-list {
     max-height: 420px;
   }
+  .tag-rating-deviation-list {
+    max-height: 460px;
+  }
   .carousel-viewport {
     padding: 18px;
   }
@@ -1971,6 +2107,13 @@
 
 
 @media (max-width: 520px) {
+  .tag-rating-deviation-values {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tag-rating-deviation-values > div:last-child {
+    grid-column: 1 / -1;
+  }
+
   .tag-radar-visual {
     min-height: 300px;
   }

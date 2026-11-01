@@ -253,11 +253,24 @@
               {% endif %}
             </article>
             <article class="carousel-slide" data-carousel-slide aria-label="按标签拆分评分">
-              <div class="slide-heading"><strong>按标签拆分</strong><span>按已评分作品数排序，最多展示 12 个标签</span></div>
+              <div class="slide-heading slide-heading-with-control">
+                <strong>按标签拆分</strong>
+                <label class="insight-inline-sort">
+                  <span>排序</span>
+                  <select id="insights-tag-rating-sort" aria-label="按标签拆分评分排序">
+                    <option value="average-desc">均分：高到低</option>
+                    <option value="average-asc">均分：低到高</option>
+                    <option value="count-desc">数量：多到少</option>
+                    <option value="count-asc">数量：少到多</option>
+                    <option value="rated-desc">已评分：多到少</option>
+                    <option value="rated-asc">已评分：少到多</option>
+                  </select>
+                </label>
+              </div>
               {% if insights.ratingByTag.length %}
                 <div class="rating-breakdown-list rating-breakdown-tags">
                   {% for group in insights.ratingByTag %}
-                    <section class="rating-breakdown-row">
+                    <section class="rating-breakdown-row" data-tag-count="{{ group.count }}" data-tag-rated="{{ group.rated }}" data-tag-average="{% if group.averageRating != '—' %}{{ group.averageRating }}{% endif %}">
                       <header><div><strong>{{ group.label }}</strong><small>{{ group.rated }} 部已评分 · {{ group.count }} 部带此标签</small></div><em>{{ group.averageRating }}</em></header>
                       <div class="rating-breakdown-track" aria-label="{{ group.label }}评分构成">
                         {% for bucket in group.buckets %}
@@ -285,7 +298,7 @@
           <div class="insights-carousel" data-carousel>
             <div class="carousel-toolbar">
               <div><p class="section-index">05 / TAGS</p><h3>标签偏好</h3></div>
-              <div class="carousel-controls"><button type="button" class="carousel-button" data-carousel-prev aria-label="上一个标签视图">←</button><span data-carousel-status aria-live="polite">1 / 2</span><button type="button" class="carousel-button" data-carousel-next aria-label="下一个标签视图">→</button></div>
+              <div class="carousel-controls"><button type="button" class="carousel-button" data-carousel-prev aria-label="上一个标签视图">←</button><span data-carousel-status aria-live="polite">1 / 3</span><button type="button" class="carousel-button" data-carousel-next aria-label="下一个标签视图">→</button></div>
             </div>
             <div class="carousel-viewport">
               <article class="carousel-slide is-active" data-carousel-slide aria-label="标签偏好多边形图">
@@ -323,6 +336,32 @@
                     <div><dt>别名合并组</dt><dd>{{ insights.tagRadar.aliasGroups.length }}</dd></div>
                   </dl>
                 </div>
+              </article>
+              <article class="carousel-slide" data-carousel-slide aria-label="标签评分偏离">
+                <div class="slide-heading"><strong>标签评分偏离</strong><span>同时对照我的评分与公共评分，偏离值 = 我的平均 - 公共平均</span></div>
+                {% if insights.tagRatingDeviation.length %}
+                  <div class="tag-rating-deviation-list">
+                    {% for group in insights.tagRatingDeviation %}
+                      <section class="tag-rating-deviation-row">
+                        <header>
+                          <div><strong>{{ group.label }}</strong><small>{{ group.count }} 部带此标签 · 我的 {{ group.personalRated }} 部 · 公共 {{ group.publicRated }} 部</small></div>
+                          <em class="is-{{ group.deviationTone }}">{{ group.deviationDisplay }}</em>
+                        </header>
+                        <div class="tag-rating-deviation-values">
+                          <div><span>我的平均</span><strong>{{ group.personalAverageDisplay }}</strong></div>
+                          <div><span>公共平均</span><strong>{{ group.publicAverageDisplay }}</strong></div>
+                          <div><span>评分偏离</span><strong class="is-{{ group.deviationTone }}">{{ group.deviationDisplay }}</strong></div>
+                        </div>
+                        <div class="tag-rating-deviation-bars" aria-label="{{ group.label }}的我的评分与公共评分">
+                          <span class="tag-rating-deviation-bar is-personal" style="--rating-size: {{ group.personalPercent }}%" title="我的平均评分：{% if group.personalAverage is not null %}{{ group.personalAverage.toFixed(1) }}{% else %}暂无{% endif %}"></span>
+                          <span class="tag-rating-deviation-bar is-public" style="--rating-size: {{ group.publicPercent }}%" title="公共平均评分：{% if group.publicAverage is not null %}{{ group.publicAverage.toFixed(1) }}{% else %}暂无{% endif %}"></span>
+                        </div>
+                      </section>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <p class="panel-empty">当前没有同时具备标签与评分数据的作品。</p>
+                {% endif %}
               </article>
             </div>
           </div>

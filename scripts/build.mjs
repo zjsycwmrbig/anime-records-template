@@ -533,6 +533,7 @@ function createRecordViewModel(record, bangumiMetadata = null) {
       ? formatDateTime(record.match.matchedAt)
       : "无",
     hasPublicMetadata,
+    publicRating: publicRatingValue,
     publicRatingDisplay:
       publicRatingValue === null ? "" : publicRatingValue.toFixed(1),
     publicRatingCount,

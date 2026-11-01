@@ -531,6 +531,116 @@ function ratingBreakdownByTags(records, siteConfig) {
   );
 }
 
+function normalizedCacheSubjectId(record) {
+  return String(record?.externalIds?.bangumi ?? "").trim();
+}
+
+function finiteRating(value) {
+  const rating = Number(value);
+  return Number.isFinite(rating) && rating >= 0 && rating <= 10
+    ? rating
+    : null;
+}
+
+function ratingDeviationByTags(records, siteConfig, entries = []) {
+  const config = normalizeTagRadarConfig(siteConfig?.insights?.tagRadar);
+  const normalizeTag = createTagNormalizer(
+    config.aliasGroups,
+    config.excludedTags,
+  );
+  const cacheBySubject = new Map(
+    (Array.isArray(entries) ? entries : [])
+      .map((entry) => [String(entry?.subjectId ?? "").trim(), entry])
+      .filter(([subjectId]) => subjectId),
+  );
+  const groups = new Map();
+
+  for (const record of records) {
+    const cacheEntry = cacheBySubject.get(normalizedCacheSubjectId(record));
+    const sourceTags = normalizedRecordTags(record, normalizeTag);
+    const tags = sourceTags.length
+      ? sourceTags
+      : normalizedRecordTags(
+          { publicTags: cacheEntry?.tags ?? [] },
+          normalizeTag,
+        );
+    const personalRating = finiteRating(record.rating);
+    const publicRating = finiteRating(
+      record.publicRating ?? cacheEntry?.score,
+    );
+
+    for (const tag of tags) {
+      const group = groups.get(tag.key) ?? {
+        key: tag.key,
+        label: tag.label,
+        count: 0,
+        personalRatings: [],
+        publicRatings: [],
+      };
+      group.count += 1;
+      if (personalRating !== null) {
+        group.personalRatings.push(personalRating);
+      }
+      if (publicRating !== null) {
+        group.publicRatings.push(publicRating);
+      }
+      groups.set(tag.key, group);
+    }
+  }
+
+  return [...groups.values()]
+    .map((group) => {
+      const personalAverage = average(group.personalRatings);
+      const publicAverage = average(group.publicRatings);
+      const deviation =
+        personalAverage === null || publicAverage === null
+          ? null
+          : round(personalAverage - publicAverage);
+      return {
+        key: group.key,
+        label: group.label,
+        count: group.count,
+        personalRated: group.personalRatings.length,
+        publicRated: group.publicRatings.length,
+        personalAverage,
+        publicAverage,
+        personalAverageDisplay:
+          personalAverage === null ? "—" : personalAverage.toFixed(1),
+        publicAverageDisplay:
+          publicAverage === null ? "—" : publicAverage.toFixed(1),
+        personalPercent:
+          personalAverage === null ? 0 : round(personalAverage * 10),
+        publicPercent:
+          publicAverage === null ? 0 : round(publicAverage * 10),
+        deviation,
+        deviationDisplay: deviation === null
+          ? "—"
+          : `${deviation > 0 ? "+" : ""}${deviation.toFixed(1)}`,
+        deviationTone:
+          deviation === null
+            ? "neutral"
+            : deviation > 0
+              ? "positive"
+              : deviation < 0
+                ? "negative"
+                : "even",
+      };
+    })
+    .sort((left, right) => {
+      const leftDeviation = left.deviation === null
+        ? -1
+        : Math.abs(left.deviation);
+      const rightDeviation = right.deviation === null
+        ? -1
+        : Math.abs(right.deviation);
+      return (
+        rightDeviation - leftDeviation ||
+        right.count - left.count ||
+        left.label.localeCompare(right.label, "zh-CN")
+      );
+    });
+}
+
 function calculatePublicCacheCoverage(records, entries = []) {
   const cacheBySubject = new Map(
     (Array.isArray(entries) ? entries : [])
@@ -715,6 +825,11 @@ export function calculateInsights(
     records,
     options.bangumiCacheEntries,
   );
+  const tagRatingDeviation = ratingDeviationByTags(
+    records,
+    siteConfig,
+    options.bangumiCacheEntries,
+  );
   const ratingByDecade = summarizeRatingBreakdown(
     [...decadesMap.values()]
       .filter((group) => group.ratings.length > 0)
@@ -764,6 +879,7 @@ export function calculateInsights(
     ratingFine,
     ratingByDecade,
     ratingByTag: ratingBreakdownByTags(records, siteConfig),
+    tagRatingDeviation,
     pieSegments,
     decadePieSegments,
     ratingPieSegments,

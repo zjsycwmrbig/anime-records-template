@@ -389,6 +389,51 @@
     });
   }
 
+  const tagRatingDistribution = document.querySelector(".rating-breakdown-tags");
+  const tagRatingSort = document.querySelector("#insights-tag-rating-sort");
+  if (tagRatingDistribution && tagRatingSort) {
+    const tagRows = [
+      ...tagRatingDistribution.querySelectorAll(".rating-breakdown-row"),
+    ];
+    const numberValue = (value) => {
+      const number = Number.parseFloat(String(value ?? ""));
+      return Number.isFinite(number) ? number : null;
+    };
+
+    const applyTagRatingSort = () => {
+      tagRows.sort((left, right) => {
+        const leftAverage = numberValue(left.dataset.tagAverage) ?? -1;
+        const rightAverage = numberValue(right.dataset.tagAverage) ?? -1;
+        const leftCount = numberValue(left.dataset.tagCount) ?? 0;
+        const rightCount = numberValue(right.dataset.tagCount) ?? 0;
+        const leftRated = numberValue(left.dataset.tagRated) ?? 0;
+        const rightRated = numberValue(right.dataset.tagRated) ?? 0;
+
+        if (tagRatingSort.value === "average-asc") {
+          return leftAverage - rightAverage || rightRated - leftRated || rightCount - leftCount;
+        }
+        if (tagRatingSort.value === "count-desc") {
+          return rightCount - leftCount || rightAverage - leftAverage || rightRated - leftRated;
+        }
+        if (tagRatingSort.value === "count-asc") {
+          return leftCount - rightCount || rightAverage - leftAverage || rightRated - leftRated;
+        }
+        if (tagRatingSort.value === "rated-desc") {
+          return rightRated - leftRated || rightAverage - leftAverage || rightCount - leftCount;
+        }
+        if (tagRatingSort.value === "rated-asc") {
+          return leftRated - rightRated || rightAverage - leftAverage || rightCount - leftCount;
+        }
+        return rightAverage - leftAverage || rightRated - leftRated || rightCount - leftCount;
+      });
+
+      tagRatingDistribution.append(...tagRows);
+    };
+
+    tagRatingSort.addEventListener("change", applyTagRatingSort);
+    applyTagRatingSort();
+  }
+
   const yearDistribution = document.querySelector("#year-distribution");
   const yearMinInput = document.querySelector("#insights-year-min");
   const yearMaxInput = document.querySelector("#insights-year-max");
